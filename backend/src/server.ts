@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import askRoutes from "./routes/ask.route";
 import { connectDB } from "./config/db";
+import chatRoutes from "./routes/chat.route";
 import uploadRoutes from "./routes/upload.route";
 import searchRoutes from "./routes/search.route";
 
@@ -18,6 +19,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use("/api", chatRoutes);
 app.use("/api", askRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", searchRoutes);
