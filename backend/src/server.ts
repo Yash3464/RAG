@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db";
 import uploadRoutes from "./routes/upload.route";
+import searchRoutes from "./routes/search.route";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use((req, res, next) => {
 });
 
 app.use("/api", uploadRoutes);
+app.use("/api", searchRoutes);
 
 app.get("/test", (req, res) => {
   res.json({ success: true, message: "Test route working" });
