@@ -4,6 +4,7 @@ import axios from "axios";
 function App() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
+  const [question, setQuestion] = useState("");
 
   const uploadPdf = async () => {
     if (!file) {
@@ -22,6 +23,20 @@ function App() {
     }
   };
 
+  const askQuestion = async () => {
+    if (!question) {
+      alert("Enter a question");
+      return;
+    }
+    try {
+      const res = await axios.post("http://localhost:5001/api/chat", { query: question });
+      alert("Answer received!");
+    } catch (error) {
+      console.error(error);
+      alert("Question failed");
+    }
+  };
+
   return (
     <div style={{ padding: "40px", fontFamily: "Arial" }}>
       <h1>Project Memory AI</h1>
@@ -35,9 +50,17 @@ function App() {
       />
       <br /><br />
       <button onClick={uploadPdf}>Upload PDF</button>
-      {uploadResponse && (
-        <pre>{JSON.stringify(uploadResponse, null, 2)}</pre>
-      )}
+      
+      <hr style={{ marginTop: "40px" }} />
+      <h2>Ask Questions</h2>
+      <input
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Ask something about the document..."
+        style={{ width: "100%", padding: "12px" }}
+      />
+      <br /><br />
+      <button onClick={askQuestion}>Ask AI</button>
     </div>
   );
 }
