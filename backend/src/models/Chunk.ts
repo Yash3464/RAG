@@ -6,14 +6,22 @@ const chunkSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Document",
     },
+
     chunkText: {
       type: String,
       required: true,
     },
+
     pageNumber: {
       type: Number,
       default: 1,
     },
+
+    embedding: {
+      type: [Number],
+      default: [],
+    },
+
     metadata: {
       type: Object,
       default: {},
@@ -24,4 +32,7 @@ const chunkSchema = new mongoose.Schema(
   }
 );
 
-export const ChunkModel = mongoose.model("Chunk", chunkSchema);
+export const ChunkModel = mongoose.model(
+  "Chunk",
+  chunkSchema
+);
