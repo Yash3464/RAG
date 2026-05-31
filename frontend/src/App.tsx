@@ -5,6 +5,7 @@ function App() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadResponse, setUploadResponse] = useState<any>(null);
   const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
 
   const uploadPdf = async () => {
     if (!file) {
@@ -30,7 +31,7 @@ function App() {
     }
     try {
       const res = await axios.post("http://localhost:5001/api/chat", { query: question });
-      alert("Answer received!");
+      setAnswer(res.data.answer);
     } catch (error) {
       console.error(error);
       alert("Question failed");
@@ -61,6 +62,13 @@ function App() {
       />
       <br /><br />
       <button onClick={askQuestion}>Ask AI</button>
+      
+      {answer && (
+        <div style={{ marginTop: "30px", background: "#1e293b", padding: "20px", color: "white" }}>
+          <h2>Answer</h2>
+          <p>{answer}</p>
+        </div>
+      )}
     </div>
   );
 }
