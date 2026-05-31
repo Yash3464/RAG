@@ -6,6 +6,7 @@ function App() {
   const [uploadResponse, setUploadResponse] = useState<any>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<any[]>([]);
 
   const uploadPdf = async () => {
     if (!file) {
@@ -32,6 +33,7 @@ function App() {
     try {
       const res = await axios.post("http://localhost:5001/api/chat", { query: question });
       setAnswer(res.data.answer);
+      setSources(res.data.sources || []);
     } catch (error) {
       console.error(error);
       alert("Question failed");
@@ -67,6 +69,19 @@ function App() {
         <div style={{ marginTop: "30px", background: "#1e293b", padding: "20px", color: "white" }}>
           <h2>Answer</h2>
           <p>{answer}</p>
+        </div>
+      )}
+
+      {sources.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h2>Sources</h2>
+          {sources.map((src, idx) => (
+            <div key={idx} style={{ background: "#1e293b", padding: "15px", marginBottom: "10px", color: "white" }}>
+              <p><strong>Page:</strong> {src.page}</p>
+              <p><strong>Similarity:</strong> {src.similarity?.toFixed(4)}</p>
+              <p>{src.preview}</p>
+            </div>
+          ))}
         </div>
       )}
     </div>
