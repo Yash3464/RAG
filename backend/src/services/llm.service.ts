@@ -1,65 +1,65 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import Groq from "groq-sdk";
 
-console.log(
-  "Groq Key Exists:",
-  !!process.env.GROQ_API_KEY
-);
-console.log(
-  process.env.GROQ_API_KEY?.slice(0, 15)
-);
-
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY
 });
 
-export async function generateAnswer(
+export const generateCompletion =
+async (
+  prompt: string,
+  temperature: number = 0.2
+) => {
+
+  const completion =
+    await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature
+    });
+
+  const result =
+    completion.choices[0]
+      .message.content || "{}";
+
+  console.log("[LLM]", {
+    promptLength: prompt.length,
+    responseLength: result.length
+  });
+
+  return result;
+};
+
+/**
+ * Backward compatibility
+ * Old controllers can continue using generateAnswer()
+ */
+export const generateAnswer =
+async (
   question: string,
-  context: string
-): Promise<string> {
-  try {
-    const completion =
-      await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+  context: string = ""
+) => {
 
-        messages: [
-          {
-            role: "system",
-            content: `
-You are a document assistant.
+  const prompt = `
+Answer the question using the provided context.
 
-Answer ONLY from the provided context.
-
-If the answer is not present,
-say:
-"I could not find this information in the document."
-`,
-          },
-
-          {
-            role: "user",
-            content: `
-Context:
+CONTEXT:
 ${context}
 
-Question:
+QUESTION:
 ${question}
-`,
-          },
-        ],
 
-        temperature: 0.2,
-      });
+If the answer is not available in the context,
+say:
+"Information not found in project context."
+`;
 
-    return (
-      completion.choices[0].message.content ||
-      "No answer generated"
-    );
-  } catch (error: any) {
-    console.error(error);
-
-    return `LLM Error: ${error.message}`;
-  }
-}
+  return generateCompletion(
+    prompt,
+    0.2
+  );
+};

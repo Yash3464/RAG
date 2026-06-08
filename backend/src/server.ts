@@ -1,14 +1,25 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import askRoutes from "./routes/ask.route";
-
+import requirementRoutes from "./routes/requirement.route";
+import reviewRoutes from "./routes/review.route";
 import { connectDB } from "./config/db";
 import chatRoutes from "./routes/chat.route";
 import uploadRoutes from "./routes/upload.route";
 import searchRoutes from "./routes/search.route";
+import impactRoutes from "./routes/impact.route";
+import backlogRoutes from "./routes/backlog.route";
+import bugRoutes from "./routes/bug.route";
+import issueRoutes from "./routes/issue.route";
+import taskRoutes from "./routes/task.route";
+import releaseRoutes from "./routes/release.route";
+import sourceRoutes from "./routes/source.route";
+import recommendationRoutes from "./routes/recommendation.route";
+import graphRoutes from "./routes/graph.route";
 
-dotenv.config();
+
 
 const app = express();
 
@@ -18,6 +29,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/api", chatRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/impact",impactRoutes);
+app.use("/api", backlogRoutes);
+app.use("/api", bugRoutes);
+app.use("/api", issueRoutes);
+app.use("/api", taskRoutes);
+app.use("/api",releaseRoutes);
+app.use("/api/sources",sourceRoutes);
+app.use("/api", recommendationRoutes);
+app.use("/api", graphRoutes);
 
 app.use((req, res, next) => {
   console.log(
@@ -37,6 +58,7 @@ app.use(
   ROUTES
 */
 app.use("/api", uploadRoutes);
+app.use("/api", requirementRoutes);
 app.use("/api", searchRoutes);
 
 /*

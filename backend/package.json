@@ -17,12 +17,18 @@
     "dotenv": "^17.0.0",
     "express": "^5.1.0",
     "groq-sdk": "^1.2.1",
+    "mammoth": "^1.12.0",
     "mongodb": "^7.2.0",
     "mongoose": "^8.0.0",
     "multer": "^2.0.0",
-    "openai": "^5.0.0",
+    "openai": "^5.23.2",
     "pdf-parse": "^1.1.1",
-    "uuid": "^11.0.0"
+    "reactflow": "^11.11.4",
+    "uuid": "^11.0.0",
+    "wink-bm25-text-search": "^3.1.2",
+    "wink-eng-lite-web-model": "^1.8.1",
+    "wink-nlp": "^2.4.0",
+    "wink-nlp-utils": "^2.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

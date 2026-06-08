@@ -1,30 +1,35 @@
 import { Request, Response } from "express";
 import { ChunkModel } from "../models/Chunk";
 import { generateEmbedding } from "../services/embedding.service";
-import { generateAnswer } from "../services/llm.service";
+import { generateCompletion } from "../services/llm.service";
 
 export const askQuestion = async (
   req: Request,
   res: Response
 ) => {
+
   try {
+
     const { question } = req.body;
 
     if (!question) {
       return res.status(400).json({
         success: false,
-        message: "Question is required",
+        message: "Question is required"
       });
     }
 
     const queryEmbedding =
-      await generateEmbedding(question);
+      await generateEmbedding(
+        question
+      );
 
     const chunks =
       await ChunkModel.find();
 
     const scoredChunks =
       chunks.map((chunk: any) => {
+
         const similarity =
           cosineSimilarity(
             queryEmbedding,
@@ -33,38 +38,56 @@ export const askQuestion = async (
 
         return {
           text: chunk.chunkText,
-          similarity,
+          similarity
         };
       });
 
     scoredChunks.sort(
       (a, b) =>
-        b.similarity - a.similarity
+        b.similarity -
+        a.similarity
     );
 
     const context =
       scoredChunks
         .slice(0, 5)
-        .map((c) => c.text)
+        .map(
+          (c) => c.text
+        )
         .join("\n\n");
 
+    const prompt = `
+Answer the user's question using ONLY the provided context.
+
+CONTEXT:
+${context}
+
+QUESTION:
+${question}
+
+If the answer is not found in the context, say:
+"Information not found in project context."
+`;
+
     const answer =
-      await generateAnswer(
-        question,
-        context
+      await generateCompletion(
+        prompt,
+        0.2
       );
 
     return res.json({
       success: true,
-      answer,
+      answer
     });
 
   } catch (error) {
+
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to generate answer",
+      message:
+        "Failed to generate answer"
     });
   }
 };
@@ -73,11 +96,17 @@ function cosineSimilarity(
   a: number[],
   b: number[]
 ) {
+
   let dot = 0;
   let magA = 0;
   let magB = 0;
 
-  for (let i = 0; i < a.length; i++) {
+  for (
+    let i = 0;
+    i < a.length;
+    i++
+  ) {
+
     dot += a[i] * b[i];
     magA += a[i] * a[i];
     magB += b[i] * b[i];

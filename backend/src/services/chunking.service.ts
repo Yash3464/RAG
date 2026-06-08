@@ -1,7 +1,12 @@
-export const chunkText = (
+export const chunkText =
+(
   text: string,
   chunkSize = 1000
 ): string[] => {
+
+  if (!text) {
+    return [];
+  }
 
   const chunks: string[] = [];
 
@@ -10,9 +15,20 @@ export const chunkText = (
     i < text.length;
     i += chunkSize
   ) {
-    chunks.push(
-      text.slice(i, i + chunkSize)
-    );
+
+    const chunk =
+      text
+        .slice(
+          i,
+          i + chunkSize
+        )
+        .trim();
+
+    if (
+      chunk.length > 0
+    ) {
+      chunks.push(chunk);
+    }
   }
 
   return chunks;

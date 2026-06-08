@@ -1,38 +1,41 @@
 import mongoose from "mongoose";
 
-const chunkSchema = new mongoose.Schema(
-  {
-    documentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Document",
-    },
+const chunkSchema =
+  new mongoose.Schema(
+    {
+      documentId: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "Document"
+      },
 
-    chunkText: {
-      type: String,
-      required: true,
-    },
+      chunkText: {
+        type: String,
+        required: true
+      },
 
-    pageNumber: {
-      type: Number,
-      default: 1,
-    },
+      pageNumber: {
+        type: Number,
+        default: 1
+      },
 
-    embedding: {
-      type: [Number],
-      default: [],
-    },
+      embedding: {
+        type: [Number],
+        default: []
+      },
 
-    metadata: {
-      type: Object,
-      default: {},
+      metadata: {
+        type: Object,
+        default: {}
+      }
     },
-  },
-  {
-    timestamps: true,
-  }
-);
+    {
+      timestamps: true
+    }
+  );
 
-export const ChunkModel = mongoose.model(
-  "Chunk",
-  chunkSchema
-);
+export const ChunkModel =
+  mongoose.model(
+    "Chunk",
+    chunkSchema
+  );
