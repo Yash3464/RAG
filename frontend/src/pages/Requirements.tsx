@@ -138,6 +138,13 @@ export default function Requirements() {
     setDraggedNodeId(null);
   };
 
+  const injectRecommendation = (text: string) => {
+    setContent((prev) => {
+      const trimmed = prev.trim();
+      return trimmed ? `${trimmed}\n\n[AI Suggestion Injected]: ${text}` : `[AI Suggestion Injected]: ${text}`;
+    });
+  };
+
   const getNodeColor = (type: string, isCentral: boolean) => {
     if (isCentral) return "#FF4FA3";
     switch (type) {
@@ -278,9 +285,9 @@ export default function Requirements() {
                 <h3 className="text-xl font-bold mb-1">Knowledge Graph Context Map</h3>
                 <p className="text-white/50 text-xs mb-4">Drag nodes to position, click to select. All relationships adapt dynamically.</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                   {/* Interactive SVG Diagram */}
-                  <div className="md:col-span-2 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center items-center relative overflow-hidden h-[340px]">
+                  <div className="lg:col-span-2 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center items-center relative overflow-hidden h-[340px]">
                     {loadingGraph ? (
                       <div className="flex items-center justify-center text-white/50 text-xs h-full">Loading Graph...</div>
                     ) : (
@@ -359,25 +366,28 @@ export default function Requirements() {
                               }}
                               className="cursor-grab active:cursor-grabbing group"
                             >
-                              <circle
-                                cx={pos.x}
-                                cy={pos.y}
-                                r={isCentral ? 14 : 10}
+                              <rect
+                                x={pos.x - 55}
+                                y={pos.y - 14}
+                                width={110}
+                                height={28}
+                                rx={6}
+                                ry={6}
                                 fill={getNodeColor(node.nodeType, isCentral)}
-                                className="transition duration-200 group-hover:scale-110"
+                                stroke={selectedNode?.nodeId === node.nodeId ? "#FFFFFF" : "rgba(255, 255, 255, 0.15)"}
+                                strokeWidth={selectedNode?.nodeId === node.nodeId ? 2 : 1}
+                                className="transition duration-150 group-hover:brightness-110"
                                 filter={isCentral ? "url(#glow)" : ""}
-                                stroke={selectedNode?.nodeId === node.nodeId ? "#FFFFFF" : "none"}
-                                strokeWidth="2"
                               />
                               <text
                                 x={pos.x}
-                                y={pos.y + (isCentral ? 26 : 22)}
+                                y={pos.y + 4}
                                 textAnchor="middle"
                                 fill="#FFFFFF"
-                                fontSize="9"
-                                className="font-semibold select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                                fontSize="8"
+                                className="font-bold select-none pointer-events-none"
                               >
-                                {node.title && node.title.length > 15 ? `${node.title.substring(0, 15)}...` : node.title}
+                                {node.title && node.title.length > 18 ? `${node.title.substring(0, 18)}...` : node.title}
                               </text>
                             </g>
                           );
@@ -387,61 +397,69 @@ export default function Requirements() {
                   </div>
 
                   {/* Selected Node Content Drawer */}
-                  <div className="bg-[#0D113D] border border-white/5 rounded-xl p-4 h-[340px] flex flex-col justify-between overflow-y-auto">
-                    {selectedNode ? (
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span
-                            className="px-2 py-0.5 rounded text-[10px] font-bold text-white capitalize"
-                            style={{ backgroundColor: getNodeColor(selectedNode.nodeType, selectedNode.isCentral) }}
-                          >
-                            {selectedNode.nodeType}
-                          </span>
-                          {selectedNode.priority && (
-                            <span className="text-[10px] text-white/50 capitalize font-medium">
-                              Priority: {selectedNode.priority}
+                  <div className="bg-[#0D113D] border border-white/5 rounded-xl p-6 h-[340px] flex flex-col justify-between overflow-y-auto">
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <span>🔍</span> Node Inspector
+                      </h3>
+                      {selectedNode ? (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold text-white capitalize shadow-md"
+                              style={{ backgroundColor: getNodeColor(selectedNode.nodeType, selectedNode.isCentral) }}
+                            >
+                              {selectedNode.nodeType}
                             </span>
-                          )}
+                            {selectedNode.priority && (
+                              <span className="text-xs text-white/50 capitalize font-semibold bg-white/5 px-2 py-1 rounded-lg border border-white/5">
+                                Priority: {selectedNode.priority}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-white text-md leading-snug">{selectedNode.title}</h4>
+                          <p className="text-white/70 text-sm leading-relaxed max-h-[160px] overflow-y-auto pr-1">
+                            {selectedNode.content}
+                          </p>
                         </div>
-                        <h4 className="font-bold text-sm text-white line-clamp-2">{selectedNode.title}</h4>
-                        <p className="text-white/70 text-xs leading-relaxed max-h-[180px] overflow-y-auto pr-1">
-                          {selectedNode.content}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-white/40 text-xs text-center my-auto">
-                        Click on any node in the map to review details and inspect relationships.
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-white/40 text-xs text-center py-8">
+                          Click and drag nodes in the context map, or click any node to review detailed architecture rules here.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* AI Recommendation Engine Tab */}
+            {/* AI Recommendation Engine Tab Button Prompt */}
             {showRecsPrompt && (
-              <div className="bg-[#12184A] p-8 rounded-2xl border border-white/10 shadow-lg text-center">
-                <h3 className="text-xl font-bold mb-2">Challenge & Refine Requirement</h3>
-                <p className="text-white/60 text-sm max-w-lg mx-auto mb-6">
+              <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg text-center space-y-4">
+                <h3 className="text-lg font-bold">Challenge & Refine Requirement</h3>
+                <p className="text-white/60 text-xs leading-relaxed max-w-md mx-auto">
                   Engage our cross-functional AI product panel to detect compliance gaps, scalability limits, security concerns, and blind spots.
                 </p>
                 <button
                   onClick={fetchRecommendations}
                   disabled={loadingRecs}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold transition cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold transition cursor-pointer text-xs"
                 >
                   {loadingRecs ? "Generating Recommendations..." : "Generate AI recommendations"}
                 </button>
               </div>
             )}
 
+            {/* Full Width AI Recommendation Panel */}
             {recs && (
-              <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
-                <h3 className="text-2xl font-bold mb-1 text-white">AI Recommendations Panel</h3>
-                <p className="text-white/50 text-xs mb-6">Product Manager, Architect, QA Lead, Compliance & Security Officer viewpoints.</p>
+              <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg animate-fadeIn">
+                <h3 className="text-lg font-bold mb-1 text-white flex items-center gap-1.5">
+                  <span>💡</span> AI Recommendations Panel
+                </h3>
+                <p className="text-white/40 text-[10px] mb-5">Click Inject button to copy suggestions directly into the Spec editor.</p>
 
                 {/* Rec tabs */}
-                <div className="flex border-b border-white/10 gap-2 mb-6 overflow-x-auto pb-1">
+                <div className="flex border-b border-white/10 gap-1.5 mb-5 overflow-x-auto pb-1">
                   {[
                     { id: "assumptions", label: "PM Assumptions" },
                     { id: "blindSpots", label: "Architect Gaps" },
@@ -453,10 +471,10 @@ export default function Requirements() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveRecTab(tab.id)}
-                      className={`px-4 py-2 font-semibold transition text-xs rounded-t-xl shrink-0 ${
+                      className={`px-3 py-1.5 font-bold transition text-[10px] rounded-t-lg shrink-0 ${
                         activeRecTab === tab.id
                           ? "bg-[#0D113D] border-t border-x border-white/10 text-[#FF4FA3]"
-                          : "text-white/60 hover:text-white"
+                          : "text-white/50 hover:text-white"
                       }`}
                     >
                       {tab.label}
@@ -464,73 +482,105 @@ export default function Requirements() {
                   ))}
                 </div>
 
-                {/* Rec Content list */}
-                <div className="bg-[#0D113D] rounded-xl p-4 min-h-[160px] border border-white/5">
-                  {activeRecTab === "assumptions" && (
-                    <div className="space-y-4">
-                      {recs.assumptions?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-pink-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Assumption: {item.assumption}</div>
-                          <div className="text-xs text-white/70 mt-1">Challenge: {item.challenge}</div>
+                {/* Rec Content Grid - 2 columns for maximum details and no scrollbars */}
+                <div className="bg-[#0D113D] rounded-xl p-6 border border-white/5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {activeRecTab === "assumptions" && recs.assumptions?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-pink-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Assumption: {item.assumption}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Challenge: {item.challenge}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`Assumption: ${item.assumption}. Challenge: ${item.challenge}`)}
+                          className="px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 font-bold text-[10px] border border-pink-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
 
-                  {activeRecTab === "blindSpots" && (
-                    <div className="space-y-4">
-                      {recs.blindSpots?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-purple-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Blind Spot: {item.spot}</div>
-                          <div className="text-xs text-white/70 mt-1">Solution: {item.solution}</div>
+                    {activeRecTab === "blindSpots" && recs.blindSpots?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-purple-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Blind Spot: {item.spot}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Solution: {item.solution}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`Architect Gap: ${item.spot}. Solution: ${item.solution}`)}
+                          className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 font-bold text-[10px] border border-purple-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
 
-                  {activeRecTab === "edgeCases" && (
-                    <div className="space-y-4">
-                      {recs.edgeCases?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-yellow-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Edge Case: {item.case}</div>
-                          <div className="text-xs text-white/70 mt-1">Handling: {item.handling}</div>
+                    {activeRecTab === "edgeCases" && recs.edgeCases?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-yellow-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Edge Case: {item.case}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Handling: {item.handling}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`QA Edge Case: ${item.case}. Handling: ${item.handling}`)}
+                          className="px-2.5 py-1 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 font-bold text-[10px] border border-yellow-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
 
-                  {activeRecTab === "security" && (
-                    <div className="space-y-4">
-                      {recs.security?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-red-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Security Concern: {item.concern}</div>
-                          <div className="text-xs text-white/70 mt-1">Mitigation: {item.mitigation}</div>
+                    {activeRecTab === "security" && recs.security?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-red-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Security Concern: {item.concern}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Mitigation: {item.mitigation}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`Security Mitigation: ${item.mitigation}`)}
+                          className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-[10px] border border-red-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
 
-                  {activeRecTab === "compliance" && (
-                    <div className="space-y-4">
-                      {recs.compliance?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-blue-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Rule: {item.rule}</div>
-                          <div className="text-xs text-white/70 mt-1">Action Required: {item.action}</div>
+                    {activeRecTab === "compliance" && recs.compliance?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-blue-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Rule: {item.rule}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Action Required: {item.action}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`Compliance Action: ${item.action}`)}
+                          className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-[10px] border border-blue-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
 
-                  {activeRecTab === "scalability" && (
-                    <div className="space-y-4">
-                      {recs.scalability?.map((item: any, idx: number) => (
-                        <div key={idx} className="border-l-2 border-green-500 pl-4 py-1">
-                          <div className="font-bold text-sm text-white">Scalability Bottleneck: {item.bottleneck}</div>
-                          <div className="text-xs text-white/70 mt-1">Solution: {item.solution}</div>
+                    {activeRecTab === "scalability" && recs.scalability?.map((item: any, idx: number) => (
+                      <div key={idx} className="border-l-2 border-green-500 pl-4 py-1 flex justify-between items-start gap-4 animate-fadeIn">
+                        <div className="space-y-1">
+                          <div className="font-bold text-xs text-white">Scalability Bottleneck: {item.bottleneck}</div>
+                          <div className="text-[11px] text-white/70 leading-relaxed">Solution: {item.solution}</div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <button
+                          onClick={() => injectRecommendation(`Scalability Optimization: ${item.solution}`)}
+                          className="px-2.5 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 font-bold text-[10px] border border-green-500/20 shrink-0 transition"
+                          title="Inject into spec editor"
+                        >
+                          ➕ Inject
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
