@@ -13,6 +13,8 @@ export default function DataSources() {
   const [activeTab, setActiveTab] = useState<"upload" | "url" | "jira">("upload");
   const [files, setFiles] = useState<any[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
+
   
   // URL Scraping state
   const [urlInput, setUrlInput] = useState("");
@@ -159,6 +161,7 @@ ${jiraDesc}`;
         </p>
       </div>
 
+
       {/* Tabs */}
       <div className="flex border-b border-white/10 gap-2">
         <button
@@ -233,7 +236,7 @@ ${jiraDesc}`;
               <div className="flex justify-center gap-4">
                 <button
                   onClick={() => document.getElementById("file-upload")?.click()}
-                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold transition cursor-pointer"
+                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold transition hover:bg-white/10 cursor-pointer"
                 >
                   Choose Files
                 </button>
@@ -297,7 +300,6 @@ ${jiraDesc}`;
             <p className="text-white/60 text-sm">
               Simulate Jira Webhook ingestion. Importing Jira issue descriptions builds an index of user stories, bugs, and backlog features into Project Memory.
             </p>
-
             <div className="grid grid-cols-3 gap-6">
               <div>
                 <label className="block text-white/50 text-xs mb-2">Issue ID / Key</label>
@@ -362,7 +364,9 @@ ${jiraDesc}`;
           {files.map((file) => (
             <div
               key={file.id}
-              className="bg-[#0D113D] p-5 rounded-xl border border-white/10 hover:border-[#FF4FA3]/30 transition duration-200"
+              onClick={() => setSelectedDoc(file)}
+              className="bg-[#0D113D] p-5 rounded-xl border border-white/10 hover:border-[#FF4FA3]/30 transition duration-200 cursor-pointer hover:shadow-lg hover:shadow-pink-500/5 hover:bg-[#0E1346]"
+              title="Click to preview parsed text content"
             >
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
@@ -403,6 +407,94 @@ ${jiraDesc}`;
             </div>
           ))}
         </div>
+
+        {/* File Parser Preview Console Modal */}
+        {selectedDoc && (
+          <div className="fixed inset-0 z-50 bg-[#070926]/80 backdrop-blur-xs flex justify-center items-center p-4 overflow-y-auto animate-fadeIn select-none">
+            <div className="bg-[#12184A] border border-white/10 rounded-3xl p-8 max-w-5xl w-full shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-[#FF4FA3]/5 rounded-full blur-3xl pointer-events-none" />
+              
+              {/* Header */}
+              <div className="flex justify-between items-start border-b border-white/5 pb-4 mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span>📄</span> Source Code & Text Parser Preview
+                  </h3>
+                  <p className="text-white/40 text-xs mt-1">
+                    Source file: <strong className="text-white/60">{selectedDoc.name}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedDoc(null)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-bold text-xs border border-white/5 hover:border-white/10 transition cursor-pointer"
+                >
+                  ❌ Close
+                </button>
+              </div>
+
+              {/* Split view body */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                {/* Left Side: parsed raw text */}
+                <div className="md:col-span-7 flex flex-col space-y-3">
+                  <h4 className="text-xs uppercase font-mono font-bold text-white/50 tracking-wider">
+                    Parsed Document Raw Content
+                  </h4>
+                  <div className="bg-[#070B42] border border-white/10 rounded-xl p-4 font-mono text-xs text-white/90 leading-relaxed overflow-auto max-h-[450px] min-h-[250px] whitespace-pre-wrap select-text">
+                    {selectedDoc.content || "Content was parsed, split, and stored in vector index chunks. (Pre-existing/loaded mockup logs do not carry active session content)."}
+                  </div>
+                </div>
+
+                {/* Right Side: AI metadata inspector */}
+                <div className="md:col-span-5 flex flex-col space-y-6">
+                  <h4 className="text-xs uppercase font-mono font-bold text-white/50 tracking-wider">
+                    AI Metadata Inspector
+                  </h4>
+
+                  {/* Metrics cards */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Classification</div>
+                      <div className="font-bold text-white mt-1 capitalize text-sm">{selectedDoc.classification}</div>
+                    </div>
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Priority</div>
+                      <div className="font-bold text-white mt-1 capitalize text-sm">{selectedDoc.priority}</div>
+                    </div>
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">AI Confidence</div>
+                      <div className="font-bold text-green-400 mt-1 text-sm">{selectedDoc.confidence}%</div>
+                    </div>
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Effort Est.</div>
+                      <div className="font-bold text-white mt-1 text-sm">{selectedDoc.estimatedHours} hrs</div>
+                    </div>
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Complexity</div>
+                      <div className="font-bold text-cyan-400 mt-1 text-sm">{selectedDoc.complexity}/5</div>
+                    </div>
+                    <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Chunks Created</div>
+                      <div className="font-bold text-pink-400 mt-1 text-sm">{selectedDoc.chunksCreated || 1} chunks</div>
+                    </div>
+                  </div>
+
+                  {/* Vector index metadata */}
+                  <div className="bg-[#0D113D] rounded-xl p-5 border border-white/5 space-y-3">
+                    <span className="text-xs text-white/40 uppercase font-bold tracking-wider border-b border-white/5 pb-2 block">
+                      Vector Index Specs
+                    </span>
+                    <div className="space-y-2 text-[11px] text-white/70 leading-relaxed font-mono">
+                      <div><span className="text-white/40">Vector Database:</span> Atlas Vector Search</div>
+                      <div><span className="text-white/40">Model:</span> Xenova/all-MiniLM-L6-v2</div>
+                      <div><span className="text-white/40">Dimensions:</span> 384 dimensions</div>
+                      <div><span className="text-white/40">Chunk Size:</span> 800 chars / overlaps</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
