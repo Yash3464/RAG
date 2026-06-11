@@ -453,3 +453,53 @@ ${(
     });
   }
 };
+
+export const chatRequirementController = async (req: Request, res: Response) => {
+  try {
+    const { messages, requirement } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({
+        success: false,
+        message: "Messages history array is required",
+      });
+    }
+
+    const { generateCompletion } = require("../services/llm.service");
+
+    const systemPrompt = `You are BRAINED, an AI-powered Product Intelligence Platform.
+You are helping the user (a Product Manager, Engineer, or Architect) refine, analyze, or answer questions about their requirement.
+
+CURRENT REQUIREMENT SPECIFICATION:
+"${requirement || "None entered yet."}"
+
+Instructions:
+- Provide highly technical, clear, and actionable feedback.
+- Help them identify missing edge cases, business logic gaps, compliance rules, and architectural bottlenecks.
+- Be concise, professional, and friendly.
+- Suggest concrete phrasing they can copy-paste back into their requirements edit window.
+`;
+
+    // Construct full system prompt + message history for completion
+    let prompt = `${systemPrompt}\n\nCONVERSATION HISTORY:\n`;
+    for (const msg of messages) {
+      const roleName = msg.role === "user" ? "User" : "AI Assistant";
+      prompt += `${roleName}: ${msg.content}\n`;
+    }
+    prompt += `AI Assistant:`;
+
+    const reply = await generateCompletion(prompt, 0.7);
+
+    return res.json({
+      success: true,
+      reply: reply.trim(),
+    });
+  } catch (error) {
+    console.error("Chat requirement controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chat failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
