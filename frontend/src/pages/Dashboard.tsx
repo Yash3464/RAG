@@ -108,22 +108,26 @@ export default function Dashboard() {
             Platform Capabilities
           </h2>
 
-          <div className="space-y-4">
-
-            <div>✅ Requirement Analysis</div>
-
-            <div>✅ Duplicate Detection</div>
-
-            <div>✅ Priority Scoring</div>
-
-            <div>✅ Effort Estimation</div>
-
-            <div>✅ Backlog Planning</div>
-
-            <div>✅ Bug Resolution AI</div>
-
-            <div>✅ Issue Resolution AI</div>
-
+          <div className="grid grid-cols-1 gap-3.5">
+            {[
+              { title: "Requirement Analysis", desc: "Extract specifications & trace architectures using advanced semantic parsing.", icon: "📋", color: "from-blue-600 to-cyan-500" },
+              { title: "Duplicate Detection", desc: "Instantly cross-check and de-duplicate incoming product backlog requests.", icon: "🔄", color: "from-pink-600 to-rose-500" },
+              { title: "Priority Scoring", desc: "Multi-vector priority metrics (Business, Compliance, Security, User, Dependency).", icon: "⚖️", color: "from-amber-500 to-yellow-500" },
+              { title: "Effort Estimation", desc: "AI dev and testing estimates calculated automatically based on complexity.", icon: "⏱️", color: "from-purple-600 to-pink-500" },
+              { title: "Backlog Planning", desc: "Algorithmic roadmapping for Releases 1, 2, and 3 based on effort penalties.", icon: "📅", color: "from-indigo-600 to-blue-500" },
+              { title: "Bug Resolution AI", desc: "Auto-generate developer tasks and QA acceptance criteria from bug reports.", icon: "🐛", color: "from-red-600 to-pink-600" },
+              { title: "Issue Resolution AI", desc: "Flag conflict risks, architectural impacts, and blocking requirements.", icon: "⚠️", color: "from-teal-600 to-emerald-500" }
+            ].map((cap, idx) => (
+              <div key={idx} className="group bg-[#0D113D]/60 border border-white/5 hover:border-white/10 rounded-xl p-3 flex items-start gap-3 transition-all duration-300 hover:scale-[1.01] hover:bg-[#0D113D]">
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${cap.color} flex items-center justify-center text-sm shrink-0 shadow-lg shadow-black/10`}>
+                  {cap.icon}
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="font-bold text-white text-xs group-hover:text-[#FF4FA3] transition-colors">{cap.title}</h3>
+                  <p className="text-white/40 text-[10px] leading-relaxed">{cap.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
         </div>

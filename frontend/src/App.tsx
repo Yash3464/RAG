@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -10,10 +11,25 @@ import Dashboard from "./pages/Dashboard";
 import Requirements from "./pages/Requirements";
 import Backlog from "./pages/Backlog";
 import ResolutionCenter from "./pages/ResolutionCenter";
-import ImpactAnalysis from "./pages/ImpactAnalysis";
 import DataSources from "./pages/DataSources";
+import Login from "./pages/Login";
+import AdminPanel from "./pages/AdminPanel";
+import WorkPortal from "./pages/WorkPortal";
 
 function App() {
+  const [user, setUser] = useState<{ email: string; role: "admin" | "employee" } | null>(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("brained_user");
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  if (!user) {
+    return <Login onLoginSuccess={(u) => setUser(u)} />;
+  }
+
   return (
     <BrowserRouter>
       <MainLayout>
@@ -43,7 +59,7 @@ function App() {
           <Route
             path="/impact"
             element={
-              <ImpactAnalysis />
+              <Requirements />
             }
           />
 
@@ -51,6 +67,20 @@ function App() {
             path="/sources"
             element={
               <DataSources />
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <AdminPanel />
+            }
+          />
+
+          <Route
+            path="/work-portal"
+            element={
+              <WorkPortal />
             }
           />
         </Routes>
