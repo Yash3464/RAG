@@ -4,6 +4,7 @@ import { EmployeeStatusModel } from "../models/EmployeeStatus";
 import { EmployeeIssueModel } from "../models/EmployeeIssue";
 import { DocumentModel } from "../models/Document";
 import { ChunkModel } from "../models/Chunk";
+import { AuditLogModel } from "../models/AuditLog";
 import { generateCompletion } from "../services/llm.service";
 
 const router = Router();
@@ -197,6 +198,55 @@ router.get("/admin/employee-issues", authMiddleware, requireAdmin, async (req, r
     return res.status(500).json({
       success: false,
       message: "Failed to fetch employee issues log",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// 7. Delete document and all associated chunks (Admin Only)
+router.delete("/admin/documents/:id", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || typeof comment !== "string" || !comment.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Deletion comment/reason is required",
+      });
+    }
+
+    const doc = await DocumentModel.findById(id);
+    if (!doc) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found",
+      });
+    }
+
+    // Delete associated chunks
+    await ChunkModel.deleteMany({ documentId: id });
+
+    // Delete document metadata
+    await DocumentModel.findByIdAndDelete(id);
+
+    // Save audit log detailing the deletion and comment
+    await AuditLogModel.create({
+      action: "DELETE",
+      targetId: id,
+      targetType: "document",
+      details: `Deleted data source "${doc.title}". Reason: ${comment}`,
+      performedBy: (req as any).user?.email || "admin@brained.ai",
+    });
+
+    return res.json({
+      success: true,
+      message: "Data source and search index chunks deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete data source",
       error: error instanceof Error ? error.message : String(error),
     });
   }
