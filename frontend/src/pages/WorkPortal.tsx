@@ -36,6 +36,14 @@ export default function WorkPortal() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [workHistory, setWorkHistory] = useState<any[]>([]);
 
+  // Sparkline timeframe filters
+  const [selectedMonth, setSelectedMonth] = useState<string>("current");
+  const [selectedWeek, setSelectedWeek] = useState<string>("7days");
+
+  // Backlog task picker search & sorting
+  const [taskSearch, setTaskSearch] = useState("");
+  const [taskSort, setTaskSort] = useState("priority");
+
   const timerRef = useRef<any>(null);
 
   // Sync elapsed seconds via ref to prevent heartbeat from refiring every second
@@ -88,6 +96,90 @@ export default function WorkPortal() {
     };
   }, []);
 
+  const getFilteredHistory = () => {
+    const today = new Date();
+    
+    const getMonthRange = (option: string) => {
+      let targetYear = today.getFullYear();
+      let targetMonth = today.getMonth();
+      
+      if (option === "prev1") {
+        targetMonth -= 1;
+        if (targetMonth < 0) {
+          targetMonth = 11;
+          targetYear -= 1;
+        }
+      } else if (option === "prev2") {
+        targetMonth -= 2;
+        if (targetMonth < 0) {
+          targetMonth += 12;
+          targetYear -= 1;
+        }
+      }
+      
+      const start = new Date(targetYear, targetMonth, 1);
+      const end = new Date(targetYear, targetMonth + 1, 0);
+      return { start, end, year: targetYear, month: targetMonth };
+    };
+
+    if (selectedMonth === "current" && selectedWeek === "7days") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      start.setHours(0,0,0,0);
+      
+      return workHistory.filter((record) => {
+        const d = new Date(record.date);
+        return d >= start && d <= today;
+      });
+    }
+
+    const { start, end } = getMonthRange(selectedMonth);
+    let filtered = workHistory.filter((record) => {
+      const d = new Date(record.date);
+      return d >= start && d <= end;
+    });
+
+    if (selectedWeek !== "all") {
+      const wIdx = parseInt(selectedWeek);
+      const dayStart = (wIdx - 1) * 7 + 1;
+      const dayEnd = wIdx === 5 ? end.getDate() : wIdx * 7;
+      
+      filtered = filtered.filter((record) => {
+        const d = new Date(record.date);
+        const dayVal = d.getDate();
+        return dayVal >= dayStart && dayVal <= dayEnd;
+      });
+    }
+
+    return filtered;
+  };
+
+  const getProcessedBacklog = () => {
+    let list = [...backlog];
+    if (taskSearch.trim()) {
+      const q = taskSearch.toLowerCase();
+      list = list.filter((item) => 
+        item.content.toLowerCase().includes(q) || 
+        item.classification.toLowerCase().includes(q)
+      );
+    }
+    
+    list.sort((a, b) => {
+      if (taskSort === "priority") {
+        return (b.priorityScore || 0) - (a.priorityScore || 0);
+      } else if (taskSort === "complexity") {
+        return (a.complexityScore || 0) - (b.complexityScore || 0);
+      } else if (taskSort === "hours") {
+        const aHours = (a.estimatedDevelopmentHours || 0) + (a.estimatedTestingHours || 0);
+        const bHours = (b.estimatedDevelopmentHours || 0) + (b.estimatedTestingHours || 0);
+        return aHours - bHours;
+      }
+      return 0;
+    });
+    
+    return list;
+  };
+
   const loadWorkHistory = () => {
     const saved = localStorage.getItem("brained_work_history");
     if (saved) {
@@ -97,16 +189,22 @@ export default function WorkPortal() {
           ...item,
           hours: item.hours ? Math.round(item.hours * 2) / 2 : 0
         }));
+        
+        // Seed more history data if saved history has too few elements
+        if (cleaned.length < 30) {
+          throw new Error("Seed more history data");
+        }
+        
         localStorage.setItem("brained_work_history", JSON.stringify(cleaned));
         setWorkHistory(cleaned);
         return;
       } catch {}
     }
     
-    // Initialize with mock data for the last 14 days to make the sparkline look alive!
+    // Initialize with mock data for the last 60 days to make the sparkline timeframe selectors look alive!
     const mockHistory = [];
     const today = new Date();
-    for (let i = 13; i >= 0; i--) {
+    for (let i = 59; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
@@ -364,26 +462,76 @@ export default function WorkPortal() {
                 {taskSource === "backlog" ? (
                   /* Option A: Choose from Backlog */
                   <div className="space-y-4">
-                    <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider font-mono">
-                      Select Backlog Requirement / Issue
-                    </label>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-between items-center">
+                      <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider font-mono mr-auto">
+                        Backlog Task Grid
+                      </label>
+                      
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                          type="text"
+                          value={taskSearch}
+                          onChange={(e) => setTaskSearch(e.target.value)}
+                          placeholder="Search tasks..."
+                          className="bg-[#0D113D] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#FF4FA3] w-full sm:w-40 font-medium"
+                        />
+                        
+                        <select
+                          value={taskSort}
+                          onChange={(e) => setTaskSort(e.target.value)}
+                          className="bg-[#0D113D] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#FF4FA3] cursor-pointer shrink-0 font-semibold"
+                        >
+                          <option value="priority">Sort by Priority Score</option>
+                          <option value="complexity">Sort by Complexity</option>
+                          <option value="hours">Sort by Est. Hours</option>
+                        </select>
+                      </div>
+                    </div>
+
                     {loading ? (
-                      <div className="text-white/50 text-xs py-2 animate-pulse">Loading active backlog items...</div>
+                      <div className="text-white/50 text-xs py-10 text-center animate-pulse">Loading active backlog items...</div>
                     ) : backlog.length === 0 ? (
-                      <div className="text-white/30 text-xs py-2 italic">No active backlog tasks available.</div>
+                      <div className="text-white/30 text-xs py-10 text-center italic bg-[#0d113d]/30 border border-dashed border-white/5 rounded-xl">No active backlog tasks available.</div>
                     ) : (
-                      <select
-                        value={selectedTaskId}
-                        onChange={(e) => handleTaskChange(e.target.value)}
-                        className="w-full bg-[#0D113D] border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-[#FF4FA3]/50 cursor-pointer"
-                      >
-                        <option value="">-- Choose a Backlog Task --</option>
-                        {backlog.map((item) => (
-                          <option key={item._id} value={item._id}>
-                            [{item.classification.toUpperCase()} - {item.priority.toUpperCase()}] {item.content.substring(0, 75)}...
-                          </option>
-                        ))}
-                      </select>
+                      <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                        {getProcessedBacklog().map((item) => {
+                          const isSelected = selectedTaskId === item._id;
+                          const totalHours = (item.estimatedDevelopmentHours || 0) + (item.estimatedTestingHours || 0);
+                          
+                          let priorityColor = "border-blue-500/20 text-blue-400 bg-blue-500/5";
+                          if (item.priority === "critical") priorityColor = "border-red-500/20 text-red-400 bg-red-500/5 animate-pulse";
+                          else if (item.priority === "high") priorityColor = "border-orange-500/20 text-orange-400 bg-orange-500/5";
+                          else if (item.priority === "medium") priorityColor = "border-yellow-500/20 text-yellow-400 bg-yellow-500/5";
+
+                          return (
+                            <div
+                              key={item._id}
+                              onClick={() => handleTaskChange(item._id)}
+                              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
+                                isSelected
+                                  ? "bg-[#12184A] border-[#FF4FA3] shadow-lg shadow-[#FF4FA3]/5"
+                                  : "bg-[#0d113d]/45 border-white/5 hover:border-white/10 hover:bg-[#0d113d]/80"
+                              }`}
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <h4 className="font-bold text-xs text-white/95 leading-relaxed flex-1">{item.content}</h4>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${priorityColor}`}>
+                                  {item.priority}
+                                </span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center text-[10px] text-white/40 pt-2 border-t border-white/5">
+                                <span className="capitalize text-pink-400 font-bold">{item.classification}</span>
+                                <div className="flex items-center gap-3">
+                                  <span>Hours: <strong className="text-white/80">{totalHours}h</strong></span>
+                                  <span>Complexity: <strong className="text-cyan-400">{item.complexityScore || 1}/5</strong></span>
+                                  <span>Score: <strong className="text-amber-400">{item.priorityScore || 0}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -629,14 +777,58 @@ export default function WorkPortal() {
 
       {/* Productivity Sparkline Section */}
       <div className="bg-[#12184A] border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-md">
-        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-          <span>📅</span> Productivity Sparkline (Last 14 Days)
-        </h2>
-        <p className="text-white/40 text-xs mb-6">Visual contribution grid of engineering hours logged. Hover for details.</p>
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4 border-b border-white/5 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <span>📅</span> Productivity Sparkline
+            </h2>
+            <p className="text-white/40 text-xs mt-0.5">Visual contribution grid of engineering hours logged. Hover for details.</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Month Select */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-white/50 font-mono uppercase font-semibold">Month:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedMonth(val);
+                  if (val !== "current" && selectedWeek === "7days") {
+                    setSelectedWeek("all");
+                  }
+                }}
+                className="bg-[#0D113D] text-xs text-white border border-white/10 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#FF4FA3] cursor-pointer font-semibold"
+              >
+                <option value="current">Current Month</option>
+                <option value="prev1">Previous Month</option>
+                <option value="prev2">Two Months Ago</option>
+              </select>
+            </div>
+
+            {/* Week Select */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-white/50 font-mono uppercase font-semibold">Week:</span>
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="bg-[#0D113D] text-xs text-white border border-white/10 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#FF4FA3] cursor-pointer font-semibold"
+              >
+                {selectedMonth === "current" && <option value="7days">Last 7 Days</option>}
+                <option value="all">All Weeks</option>
+                <option value="1">Week 1 (Days 1-7)</option>
+                <option value="2">Week 2 (Days 8-14)</option>
+                <option value="3">Week 3 (Days 15-21)</option>
+                <option value="4">Week 4 (Days 22-28)</option>
+                <option value="5">Week 5 (Days 29+)</option>
+              </select>
+            </div>
+          </div>
+        </div>
         
         <div className="flex items-center gap-2 justify-between flex-wrap">
-          <div className="flex gap-2">
-            {workHistory.slice(-14).map((record, index) => {
+          <div className="flex gap-2 flex-wrap max-w-full">
+            {getFilteredHistory().map((record, index) => {
               const h = record.hours;
               let bgClass = "bg-white/5 border border-white/5";
               if (h > 0 && h <= 3) bgClass = "bg-[#7A39D8]/30 border border-[#7A39D8]/45";
@@ -647,7 +839,7 @@ export default function WorkPortal() {
               return (
                 <div
                   key={index}
-                  className={`w-10 h-10 rounded-lg ${bgClass} flex flex-col items-center justify-center relative group cursor-help transition-all duration-200 hover:scale-110`}
+                  className={`w-10 h-10 rounded-lg ${bgClass} flex flex-col items-center justify-center relative group cursor-help transition-all duration-200 hover:scale-110 mb-2 shrink-0`}
                 >
                   <span className="text-[10px] font-black text-white/90">{h > 0 ? `${h}h` : "—"}</span>
                   {/* Floating Tooltip */}
