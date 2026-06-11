@@ -107,41 +107,14 @@ export const analyzeSourceController = async (
       "issue"
     ];
 
-    if (validBacklogTypes.includes(classification.type)) {
-      const contentVal = sourceName + ": " + analysisText.substring(0, 1000);
-      const userEmail = (req as any).user?.email || "admin@brained.ai";
-      const entry = await JournalEntryModel.create({
-        content: contentVal,
-        sourceType: sourceType === "pdf" ? "document" : (sourceType === "email" ? "email" : "meeting"),
-        classification: classification.type,
-        status: "draft",
-        priority: priority.priority,
-        priorityScore: priority.totalScore,
-        priorityReason: priority.reasoning,
-        estimatedDevelopmentHours: effort.developmentHours,
-        estimatedTestingHours: effort.testingHours,
-        estimatedReviewHours: effort.reviewHours,
-        estimatedDocumentationHours: effort.documentationHours,
-        estimatedComputeHours: effort.computeHours,
-        complexityScore: effort.complexity,
-        versions: [
-          {
-            versionNumber: 1,
-            content: contentVal,
-            title: sourceName,
-            modifiedBy: userEmail
-          }
-        ]
-      });
-
-      await AuditLogModel.create({
-        action: "CREATE",
-        targetId: entry._id.toString(),
-        targetType: classification.type,
-        details: `Ingested new ${classification.type} from file/source "${sourceName}"`,
-        performedBy: (req as any).user?.email || "admin@brained.ai",
-      });
-    }
+    // Exclude ingested sources from the backlog. They are saved strictly as document assets.
+    await AuditLogModel.create({
+      action: "CREATE",
+      targetId: document._id.toString(),
+      targetType: "document",
+      details: `Ingested new knowledge source "${sourceName}" with classification "${classification.type}"`,
+      performedBy: (req as any).user?.email || "admin@brained.ai",
+    });
 
     return res.json({
       success: true,
