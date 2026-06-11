@@ -16,6 +16,8 @@ export default function Requirements() {
   const [graphData, setGraphData] = useState<any>(null);
   const [loadingGraph, setLoadingGraph] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
 
   const analyzeRequirement = async () => {
     try {
@@ -51,6 +53,15 @@ export default function Requirements() {
       setLoadingGraph(true);
       const response = await api.get(`/graph/${nodeId}`);
       setGraphData(response.data.graph);
+      
+      if (response.data.graph && response.data.graph.nodes) {
+        const computed = computeNodePositions(response.data.graph.nodes, response.data.graph.centralNode.nodeId);
+        const positions: Record<string, { x: number; y: number }> = {};
+        computed.forEach((node) => {
+          positions[node.nodeId] = { x: node.x, y: node.y };
+        });
+        setNodePositions(positions);
+      }
     } catch (err) {
       console.error("Failed to load local knowledge graph:", err);
     } finally {
@@ -80,7 +91,7 @@ export default function Requirements() {
     const centerY = 200;
     const otherNodes = nodes.filter((n) => n.nodeId !== centralId);
     
-    return nodes.map((node, index) => {
+    return nodes.map((node) => {
       if (node.nodeId === centralId) {
         return { ...node, x: centerX, y: centerY, isCentral: true };
       }
@@ -93,6 +104,38 @@ export default function Requirements() {
         isCentral: false,
       };
     });
+  };
+
+  const getNodePos = (node: any, centralId: string) => {
+    if (nodePositions[node.nodeId]) {
+      return nodePositions[node.nodeId];
+    }
+    const computed = computeNodePositions(graphData?.nodes || [], centralId);
+    const matched = computed.find((n) => n.nodeId === node.nodeId);
+    return matched ? { x: matched.x, y: matched.y } : { x: 200, y: 200 };
+  };
+
+  const handlePointerDown = (nodeId: string) => {
+    setDraggedNodeId(nodeId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!draggedNodeId) return;
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 400;
+    const y = ((e.clientY - rect.top) / rect.height) * 340;
+    const boundedX = Math.max(20, Math.min(380, x));
+    const boundedY = Math.max(20, Math.min(320, y));
+
+    setNodePositions((prev) => ({
+      ...prev,
+      [draggedNodeId]: { x: boundedX, y: boundedY },
+    }));
+  };
+
+  const handlePointerUp = () => {
+    setDraggedNodeId(null);
   };
 
   const getNodeColor = (type: string, isCentral: boolean) => {
@@ -193,29 +236,25 @@ export default function Requirements() {
         )}
 
         {result && !result.duplicate && !result.error && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             {/* Core Metrics */}
             <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
               <h3 className="text-xl font-bold mb-4 text-[#FF4FA3]">AI Analysis Summary</h3>
-              
               <div className="grid grid-cols-4 gap-4">
                 <div className="bg-[#0D113D] p-4 rounded-xl border border-white/5">
                   <div className="text-white/40 text-[10px] uppercase font-semibold">Classification</div>
                   <div className="font-bold text-white text-md mt-1 capitalize">{result.classification}</div>
                 </div>
-
                 <div className="bg-[#0D113D] p-4 rounded-xl border border-white/5">
                   <div className="text-white/40 text-[10px] uppercase font-semibold">Priority Score</div>
                   <div className="font-bold text-white text-md mt-1">
                     {result.priorityScore} <span className="text-xs text-white/50 font-normal">({result.priority})</span>
                   </div>
                 </div>
-
                 <div className="bg-[#0D113D] p-4 rounded-xl border border-white/5">
                   <div className="text-white/40 text-[10px] uppercase font-semibold">Complexity</div>
                   <div className="font-bold text-cyan-400 text-md mt-1">{result.effort?.complexity || 1}/5</div>
                 </div>
-
                 <div className="bg-[#0D113D] p-4 rounded-xl border border-white/5">
                   <div className="text-white/40 text-[10px] uppercase font-semibold">Est. Refactor</div>
                   <div className="font-bold text-pink-400 text-md mt-1">
@@ -223,7 +262,6 @@ export default function Requirements() {
                   </div>
                 </div>
               </div>
-
               {result.analysis?.refinedRequirement && (
                 <div className="mt-6 bg-[#0D113D]/40 p-4 rounded-xl border border-white/5">
                   <div className="text-white/50 text-xs font-semibold mb-2">Refined Requirement Statement</div>
@@ -234,20 +272,26 @@ export default function Requirements() {
               )}
             </div>
 
-            {/* Knowledge Graph Visualization */}
+            {/* Knowledge Graph & Node Inspector (2:1 split) */}
             {graphData && (
               <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
                 <h3 className="text-xl font-bold mb-1">Knowledge Graph Context Map</h3>
-                <p className="text-white/50 text-xs mb-4">Interactive subgraph mapping related modules. Click node to review content details.</p>
+                <p className="text-white/50 text-xs mb-4">Drag nodes to position, click to select. All relationships adapt dynamically.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                  
                   {/* Interactive SVG Diagram */}
-                  <div className="md:col-span-2 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center relative overflow-hidden h-[340px]">
+                  <div className="md:col-span-2 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center items-center relative overflow-hidden h-[340px]">
                     {loadingGraph ? (
-                      <div className="flex items-center justify-center text-white/50 text-xs">Loading Graph...</div>
+                      <div className="flex items-center justify-center text-white/50 text-xs h-full">Loading Graph...</div>
                     ) : (
-                      <svg width="400" height="340" className="overflow-visible">
+                      <svg
+                        width="400"
+                        height="340"
+                        className="overflow-visible select-none"
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerLeave={handlePointerUp}
+                      >
                         <defs>
                           <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -257,18 +301,19 @@ export default function Requirements() {
 
                         {/* Draw Edges */}
                         {graphData.edges.map((edge: any, index: number) => {
-                          const nodesWithPositions = computeNodePositions(graphData.nodes, graphData.centralNode.nodeId);
-                          const source = nodesWithPositions.find((n) => n.nodeId === edge.sourceNodeId);
-                          const target = nodesWithPositions.find((n) => n.nodeId === edge.targetNodeId);
-                          if (!source || !target) return null;
+                          const sourceNode = graphData.nodes.find((n: any) => n.nodeId === edge.sourceNodeId);
+                          const targetNode = graphData.nodes.find((n: any) => n.nodeId === edge.targetNodeId);
+                          if (!sourceNode || !targetNode) return null;
+                          const sourcePos = getNodePos(sourceNode, graphData.centralNode.nodeId);
+                          const targetPos = getNodePos(targetNode, graphData.centralNode.nodeId);
 
                           return (
                             <g key={index}>
                               <line
-                                x1={source.x}
-                                y1={source.y}
-                                x2={target.x}
-                                y2={target.y}
+                                x1={sourcePos.x}
+                                y1={sourcePos.y}
+                                x2={targetPos.x}
+                                y2={targetPos.y}
                                 stroke={getEdgeColor(edge.relationshipType)}
                                 strokeWidth="2"
                                 strokeDasharray={edge.relationshipType === "depends_on" ? "4 4" : "0"}
@@ -276,8 +321,8 @@ export default function Requirements() {
                               />
                               {/* Edge Label at midpoint */}
                               <rect
-                                x={(source.x + target.x) / 2 - 25}
-                                y={(source.y + target.y) / 2 - 7}
+                                x={(sourcePos.x + targetPos.x) / 2 - 25}
+                                y={(sourcePos.y + targetPos.y) / 2 - 7}
                                 width="50"
                                 height="14"
                                 rx="3"
@@ -287,8 +332,8 @@ export default function Requirements() {
                                 className="opacity-90"
                               />
                               <text
-                                x={(source.x + target.x) / 2}
-                                y={(source.y + target.y) / 2 + 3}
+                                x={(sourcePos.x + targetPos.x) / 2}
+                                y={(sourcePos.y + targetPos.y) / 2 + 3}
                                 textAnchor="middle"
                                 fill="#A1A1AA"
                                 fontSize="7"
@@ -301,34 +346,42 @@ export default function Requirements() {
                         })}
 
                         {/* Draw Nodes */}
-                        {computeNodePositions(graphData.nodes, graphData.centralNode.nodeId).map((node: any) => (
-                          <g
-                            key={node.nodeId}
-                            onClick={() => setSelectedNode(node)}
-                            className="cursor-pointer group"
-                          >
-                            <circle
-                              cx={node.x}
-                              cy={node.y}
-                              r={node.isCentral ? 14 : 10}
-                              fill={getNodeColor(node.nodeType, node.isCentral)}
-                              className="transition duration-200 group-hover:scale-110"
-                              filter={node.isCentral ? "url(#glow)" : ""}
-                              stroke={selectedNode?.nodeId === node.nodeId ? "#FFFFFF" : "none"}
-                              strokeWidth="2"
-                            />
-                            <text
-                              x={node.x}
-                              y={node.y + (node.isCentral ? 26 : 22)}
-                              textAnchor="middle"
-                              fill="#FFFFFF"
-                              fontSize="9"
-                              className="font-semibold select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        {graphData.nodes.map((node: any) => {
+                          const isCentral = node.nodeId === graphData.centralNode.nodeId;
+                          const pos = getNodePos(node, graphData.centralNode.nodeId);
+                          return (
+                            <g
+                              key={node.nodeId}
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                handlePointerDown(node.nodeId);
+                                setSelectedNode(node);
+                              }}
+                              className="cursor-grab active:cursor-grabbing group"
                             >
-                              {node.title?.substring(0, 15)}...
-                            </text>
-                          </g>
-                        ))}
+                              <circle
+                                cx={pos.x}
+                                cy={pos.y}
+                                r={isCentral ? 14 : 10}
+                                fill={getNodeColor(node.nodeType, isCentral)}
+                                className="transition duration-200 group-hover:scale-110"
+                                filter={isCentral ? "url(#glow)" : ""}
+                                stroke={selectedNode?.nodeId === node.nodeId ? "#FFFFFF" : "none"}
+                                strokeWidth="2"
+                              />
+                              <text
+                                x={pos.x}
+                                y={pos.y + (isCentral ? 26 : 22)}
+                                textAnchor="middle"
+                                fill="#FFFFFF"
+                                fontSize="9"
+                                className="font-semibold select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                              >
+                                {node.title && node.title.length > 15 ? `${node.title.substring(0, 15)}...` : node.title}
+                              </text>
+                            </g>
+                          );
+                        })}
                       </svg>
                     )}
                   </div>
@@ -361,7 +414,6 @@ export default function Requirements() {
                       </div>
                     )}
                   </div>
-
                 </div>
               </div>
             )}
