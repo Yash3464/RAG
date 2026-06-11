@@ -71,7 +71,41 @@ export default function AdminPanel() {
   const [expandedDocContent, setExpandedDocContent] = useState<{ summary: string; fullText: string } | null>(null);
   const [loadingSummaryId, setLoadingSummaryId] = useState<string | null>(null);
 
+  // Deletion modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [deleteComment, setDeleteComment] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  const handleOpenDeleteModal = (id: string, title: string) => {
+    setDocToDelete({ id, title });
+    setDeleteComment("");
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!docToDelete || !deleteComment.trim() || deleting) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/admin/documents/${docToDelete.id}`, {
+        data: { comment: deleteComment }
+      });
+      // Reload documents
+      const response = await api.get("/admin/documents");
+      if (response.data.success) {
+        setDocuments(response.data.documents);
+      }
+      setDeleteModalOpen(false);
+      setDocToDelete(null);
+    } catch (err: any) {
+      console.error("Failed to delete source:", err);
+      alert(err.response?.data?.message || "Failed to delete source.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Load audit data on mount
   useEffect(() => {
@@ -620,6 +654,16 @@ export default function AdminPanel() {
 
                           <div className="flex items-center gap-4">
                             <span className="text-white/40 text-xs font-mono">{new Date(doc.createdAt).toLocaleDateString()}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDeleteModal(doc._id, doc.title);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/40 text-red-400 font-bold text-[10px] transition cursor-pointer flex items-center justify-center gap-1"
+                              title="Delete Data Source"
+                            >
+                              🗑️ Delete
+                            </button>
                             <span className="text-white/60 text-sm transition-transform duration-200">
                               {isExpanded ? "▲" : "▼"}
                             </span>
@@ -687,6 +731,49 @@ export default function AdminPanel() {
             </div>
           )}
         </>
+      )}
+
+      {/* Deletion Modal */}
+      {deleteModalOpen && docToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[#12184A] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-scaleUp">
+            <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
+              ⚠️ Confirm Permanent Deletion
+            </h3>
+            <p className="text-white/80 text-xs leading-relaxed">
+              Are you sure you want to permanently delete data source <span className="font-bold text-[#FF4FA3]">"{docToDelete.title}"</span>? This will remove all associated parsed text chunks and index vectors.
+            </p>
+            
+            <div className="space-y-1.5">
+              <label className="block text-white/50 text-[10px] uppercase font-mono font-bold">
+                Reason / Comment for deletion (Required)
+              </label>
+              <textarea
+                value={deleteComment}
+                onChange={(e) => setDeleteComment(e.target.value)}
+                placeholder="Please state why you are deleting this document..."
+                rows={3}
+                className="w-full bg-[#0D113D] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-red-400"
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting || !deleteComment.trim()}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-bold text-xs transition cursor-pointer"
+              >
+                {deleting ? "Deleting..." : "Permanently Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
