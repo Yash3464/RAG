@@ -36,11 +36,11 @@ export const getNodeGraphController = async (
 
     // 3. Find unique connected node IDs
     const connectedNodeIds = new Set<string>();
-    connectedNodeIds.add(nodeId);
+    connectedNodeIds.add(nodeId as string);
     
-    for (const edge of edges) {
-      connectedNodeIds.add(edge.sourceNodeId);
-      connectedNodeIds.add(edge.targetNodeId);
+    for (const edge of edges as any[]) {
+      connectedNodeIds.add(edge.sourceNodeId as string);
+      connectedNodeIds.add(edge.targetNodeId as string);
     }
 
     // 4. Fetch all connected nodes

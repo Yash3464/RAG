@@ -1,16 +1,12 @@
-import { Router }
-from "express";
+import { Router } from "express";
+import { analyzeIssueController } from "../controllers/issue.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
 
-import {
-  analyzeIssueController
-}
-from "../controllers/issue.controller";
-
-const router =
-  Router();
+const router = Router();
 
 router.post(
   "/issues/analyze",
+  authMiddleware,
   analyzeIssueController
 );
 

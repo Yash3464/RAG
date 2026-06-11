@@ -18,7 +18,8 @@ import releaseRoutes from "./routes/release.route";
 import sourceRoutes from "./routes/source.route";
 import recommendationRoutes from "./routes/recommendation.route";
 import graphRoutes from "./routes/graph.route";
-
+import authRoutes from "./routes/auth.route";
+import adminRoutes from "./routes/admin.route";
 
 
 const app = express();
@@ -28,6 +29,7 @@ const app = express();
 */
 app.use(cors());
 app.use(express.json());
+app.use("/api", authRoutes);
 app.use("/api", chatRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/impact",impactRoutes);
@@ -39,6 +41,7 @@ app.use("/api",releaseRoutes);
 app.use("/api/sources",sourceRoutes);
 app.use("/api", recommendationRoutes);
 app.use("/api", graphRoutes);
+app.use("/api", adminRoutes);
 
 app.use((req, res, next) => {
   console.log(

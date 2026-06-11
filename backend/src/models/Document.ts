@@ -17,6 +17,16 @@ const documentSchema = new mongoose.Schema(
       type: String,
       default: "active",
     },
+
+    summary: {
+      type: String,
+      default: "",
+    },
+
+    fullText: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

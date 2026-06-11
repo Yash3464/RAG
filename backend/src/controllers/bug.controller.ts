@@ -1,39 +1,30 @@
-import {
-  Request,
-  Response
-} from "express";
+import { Request, Response } from "express";
+import { analyzeBug } from "../services/bug-resolution.service";
+import { EmployeeIssueModel } from "../models/EmployeeIssue";
 
-import {
-  analyzeBug
-} from "../services/bug-resolution.service";
-
-export const analyzeBugController =
-async (
-  req: Request,
-  res: Response
-) => {
-
+export const analyzeBugController = async (req: Request, res: Response) => {
   try {
+    const { bug } = req.body;
+    const email = (req as any).user?.email || "unknown@brained.ai";
 
-    const { bug } =
-      req.body;
+    const analysis = await analyzeBug(bug);
 
-    const analysis =
-      await analyzeBug(
-        bug
-      );
+    // Save submission and AI analysis to database
+    await EmployeeIssueModel.create({
+      employeeEmail: email,
+      type: "bug",
+      content: bug,
+      analysis,
+    });
 
     return res.json({
       success: true,
-      analysis
+      analysis,
     });
-
   } catch (error) {
-
     return res.status(500).json({
       success: false,
-      error
+      error: error instanceof Error ? error.message : String(error),
     });
-
   }
 };

@@ -5,6 +5,7 @@ import { ClassificationModel } from "../models/Classification";
 import { RequirementReviewModel } from "../models/RequirementReview";
 import { ConflictModel } from "../models/Conflict";
 import { TaskModel } from "../models/Task";
+import { AuditLogModel } from "../models/AuditLog";
 
 import { classifyContent } from "../services/classification.service";
 import { classifyPriority } from "../services/priority-classifier.service";
@@ -44,6 +45,24 @@ export const analyzeRequirementController = async (
      */
     const classification =
       await classifyContent(content);
+
+    if (classification.type === "irrelevant") {
+      const { generateCompletion } = require("../services/llm.service");
+      const replyPrompt = `
+You are BRAINED, an AI-powered Product Intelligence Platform.
+The user entered: "${content}"
+This is a general greeting or conversational input, not a software requirement or bug.
+Reply politely, greet them, and explain that they should enter software requirements, bugs, issues, or change requests for analysis.
+Keep it concise and friendly.
+`;
+      const reply = await generateCompletion(replyPrompt, 0.7);
+
+      return res.status(200).json({
+        success: true,
+        irrelevant: true,
+        reply
+      });
+    }
 
     /**
      * STEP 2
@@ -120,8 +139,25 @@ export const analyzeRequirementController = async (
           effortData.computeHours,
 
         complexityScore:
-          effortData.complexity
+          effortData.complexity,
+
+        versions: [
+          {
+            versionNumber: 1,
+            content,
+            title: content.substring(0, 100),
+            modifiedBy: (req as any).user?.email || "admin@brained.ai"
+          }
+        ]
       });
+
+    await AuditLogModel.create({
+      action: "CREATE",
+      targetId: journalEntry._id.toString(),
+      targetType: classification.type,
+      details: `Analyzed and created new ${classification.type}: "${content.substring(0, 120)}${content.length > 120 ? "..." : ""}"`,
+      performedBy: (req as any).user?.email || "admin@brained.ai",
+    });
 
     /**
      * STEP 6

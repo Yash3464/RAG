@@ -1,40 +1,30 @@
-import {
-  Request,
-  Response
-} from "express";
+import { Request, Response } from "express";
+import { analyzeIssue } from "../services/issue-resolution.service";
+import { EmployeeIssueModel } from "../models/EmployeeIssue";
 
-import {
-  analyzeIssue
-} from "../services/issue-resolution.service";
-
-export const analyzeIssueController =
-async (
-  req: Request,
-  res: Response
-) => {
-
+export const analyzeIssueController = async (req: Request, res: Response) => {
   try {
+    const { issue } = req.body;
+    const email = (req as any).user?.email || "unknown@brained.ai";
 
-    const { issue } =
-      req.body;
+    const analysis = await analyzeIssue(issue);
 
-    const analysis =
-      await analyzeIssue(
-        issue
-      );
+    // Save submission and AI analysis to database
+    await EmployeeIssueModel.create({
+      employeeEmail: email,
+      type: "issue",
+      content: issue,
+      analysis,
+    });
 
     return res.json({
       success: true,
-      analysis
+      analysis,
     });
-
   } catch (error) {
-
     return res.status(500).json({
       success: false,
-      error
+      error: error instanceof Error ? error.message : String(error),
     });
-
   }
-
 };
