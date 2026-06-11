@@ -2,22 +2,44 @@ import {RequirementMasterModel} from "../models/RequirementMaster";
 import {generateCompletion} from "./llm.service";
 import {KnowledgeNodeModel} from "../models/KnowledgeNode";
 
-export const findRelatedNodes =
-async (
-  content: string
-) => {
+export const findRelatedNodes = async (content: string) => {
+  const nodes = await KnowledgeNodeModel.find({});
+  
+  const stopwords = new Set([
+    "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "to", "of", "in", "on", "at", 
+    "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", 
+    "after", "above", "below", "from", "up", "down", "in", "out", "on", "off", "over", "under", 
+    "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", 
+    "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", 
+    "only", "own", "same", "so", "than", "too", "very", "can", "will", "just", "don", "should", 
+    "now", "want", "myself", "need", "should", "allow"
+  ]);
 
-  const nodes =
-    await KnowledgeNodeModel.find({});
+  const cleanWords = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !stopwords.has(w));
+  };
 
-  return nodes.filter(
-    (node: any) =>
-      content
-        .toLowerCase()
-        .includes(
-          node.title?.toLowerCase() || ""
-        )
-  );
+  const contentWords = new Set(cleanWords(content));
+  if (contentWords.size === 0) return [];
+
+  return nodes.filter((node: any) => {
+    const nodeText = `${node.title || ""} ${node.content || ""}`;
+    const nodeWords = cleanWords(nodeText);
+    
+    let overlapCount = 0;
+    for (const w of nodeWords) {
+      if (contentWords.has(w)) {
+        overlapCount++;
+        // If they share at least 2 key terms, count them as related
+        if (overlapCount >= 2) return true;
+      }
+    }
+    return false;
+  });
 };
 
 export const detectRelationships =

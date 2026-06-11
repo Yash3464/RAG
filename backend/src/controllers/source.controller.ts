@@ -7,6 +7,8 @@ import { DocumentModel } from "../models/Document";
 import { ChunkModel } from "../models/Chunk";
 import { chunkText } from "../services/chunking.service";
 import { generateEmbedding } from "../services/embedding.service";
+import { JournalEntryModel } from "../models/JournalEntry";
+import { AuditLogModel } from "../models/AuditLog";
 
 export const analyzeSourceController = async (
   req: Request,
@@ -93,6 +95,54 @@ export const analyzeSourceController = async (
     const priority = await classifyPriority(analysisText, classification.type);
     const effort = await estimateEffort(analysisText);
 
+    const validBacklogTypes = [
+      "requirement",
+      "business_rule",
+      "task",
+      "change_request",
+      "approval",
+      "decision",
+      "assumption",
+      "bug",
+      "issue"
+    ];
+
+    if (validBacklogTypes.includes(classification.type)) {
+      const contentVal = sourceName + ": " + analysisText.substring(0, 1000);
+      const userEmail = (req as any).user?.email || "admin@brained.ai";
+      const entry = await JournalEntryModel.create({
+        content: contentVal,
+        sourceType: sourceType === "pdf" ? "document" : (sourceType === "email" ? "email" : "meeting"),
+        classification: classification.type,
+        status: "draft",
+        priority: priority.priority,
+        priorityScore: priority.totalScore,
+        priorityReason: priority.reasoning,
+        estimatedDevelopmentHours: effort.developmentHours,
+        estimatedTestingHours: effort.testingHours,
+        estimatedReviewHours: effort.reviewHours,
+        estimatedDocumentationHours: effort.documentationHours,
+        estimatedComputeHours: effort.computeHours,
+        complexityScore: effort.complexity,
+        versions: [
+          {
+            versionNumber: 1,
+            content: contentVal,
+            title: sourceName,
+            modifiedBy: userEmail
+          }
+        ]
+      });
+
+      await AuditLogModel.create({
+        action: "CREATE",
+        targetId: entry._id.toString(),
+        targetType: classification.type,
+        details: `Ingested new ${classification.type} from file/source "${sourceName}"`,
+        performedBy: (req as any).user?.email || "admin@brained.ai",
+      });
+    }
+
     return res.json({
       success: true,
       documentId: document._id,
@@ -104,7 +154,8 @@ export const analyzeSourceController = async (
       priorityScore: priority.totalScore,
       estimatedHours: effort.developmentHours + effort.testingHours,
       complexity: effort.complexity,
-      chunksCreated: chunks.length
+      chunksCreated: chunks.length,
+      content: rawContent
     });
   } catch (error) {
     console.error("Source analysis controller error:", error);

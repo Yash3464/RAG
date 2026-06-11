@@ -19,7 +19,15 @@ async (
       await JournalEntryModel.create({
         content: entry,
         classification,
-        sourceType: "manual"
+        sourceType: "manual",
+        versions: [
+          {
+            versionNumber: 1,
+            content: entry,
+            title: entry.substring(0, 100),
+            modifiedBy: "system@brained.ai"
+          }
+        ]
       });
 
     created.push(

@@ -1,13 +1,26 @@
-import {
-  generateCompletion
-} from "./llm.service";
+import { generateCompletion } from "./llm.service";
 
-export const classifyPriority =
-async (
+const safeJsonParse = (text: string, fallback: any = {}) => {
+  try {
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    try {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (innerError) {
+      console.error("safeJsonParse priority classifier: Failed to extract and parse JSON from text:", text);
+    }
+    return fallback;
+  }
+};
+
+export const classifyPriority = async (
   content: string,
   classification: string
 ) => {
-
   const prompt = `
 You are a Senior Product Manager.
 
@@ -39,33 +52,31 @@ Return ONLY JSON:
 }
 `;
 
-  const result =
-    await generateCompletion(
-      prompt,
-      0.2
-    );
+  const result = await generateCompletion(prompt, 0.2);
 
-  const parsed =
-    JSON.parse(
-      result
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim()
-    );
+  const fallback = {
+    businessImpact: 15,
+    complianceImpact: 10,
+    securityImpact: 10,
+    userImpact: 15,
+    dependencyImpact: 5,
+    reasoning: ["Classification fell back to default parameters."]
+  };
+
+  const parsed = safeJsonParse(result, fallback);
 
   const score =
-    parsed.businessImpact +
-    parsed.complianceImpact +
-    parsed.securityImpact +
-    parsed.userImpact +
-    parsed.dependencyImpact;
+    (parsed.businessImpact || 0) +
+    (parsed.complianceImpact || 0) +
+    (parsed.securityImpact || 0) +
+    (parsed.userImpact || 0) +
+    (parsed.dependencyImpact || 0);
 
-  let priority =
-    "low";
+  let priority = "low";
 
-  if (score >= 90) {
+  if (score >= 75) {
     priority = "critical";
-  } else if (score >= 70) {
+  } else if (score >= 60) {
     priority = "high";
   } else if (score >= 40) {
     priority = "medium";

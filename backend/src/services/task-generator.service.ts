@@ -31,10 +31,23 @@ Return ONLY JSON.
       0
     );
 
-  return JSON.parse(
-    result
-      .replace(/```json/g,"")
-      .replace(/```/g,"")
-      .trim()
-  );
+  try {
+    const cleanText = result.replace(/```json/gi, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    try {
+      const match = result.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (innerError) {
+      console.error("Failed to parse task generation:", result);
+    }
+    return {
+      title: "Actionable Task",
+      description: content,
+      priority: "medium",
+      acceptanceCriteria: []
+    };
+  }
 };

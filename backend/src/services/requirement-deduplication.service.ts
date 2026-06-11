@@ -26,6 +26,10 @@ async (
     const candidate
     of topMatches
   ) {
+    const classification = candidate.document?.metadata?.classification;
+    if (!classification) {
+      continue;
+    }
 
     const existing =
       candidate.document
@@ -56,13 +60,22 @@ Return ONLY JSON.
         0
       );
 
-    const analysis =
-      JSON.parse(
-        result
-          .replace(/```json/g,"")
-          .replace(/```/g,"")
-          .trim()
-      );
+    let analysis: any;
+    try {
+      const cleanText = result.replace(/```json/gi, "").replace(/```/g, "").trim();
+      analysis = JSON.parse(cleanText);
+    } catch (e) {
+      try {
+        const match = result.match(/\{[\s\S]*\}/);
+        if (match) {
+          analysis = JSON.parse(match[0]);
+        } else {
+          analysis = { duplicate: false, similarity: 0, reason: "" };
+        }
+      } catch (innerError) {
+        analysis = { duplicate: false, similarity: 0, reason: "" };
+      }
+    }
 
     if (
       analysis.duplicate &&

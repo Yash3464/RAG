@@ -20,7 +20,10 @@ const classificationSchema =
           "question",
           "assumption",
           "bug",
-          "issue"
+          "issue",
+          "task",
+          "approval",
+          "irrelevant"
         ],
         required: true
       },

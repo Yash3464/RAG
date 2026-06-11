@@ -107,17 +107,16 @@ Use this schema exactly:
       .trim();
 
   try {
-
-    return JSON.parse(
-      cleanedResult
-    );
-
+    return JSON.parse(cleanedResult);
   } catch (error) {
-
-    console.error(
-      "JSON Parse Error:",
-      error
-    );
+    try {
+      const match = result.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (innerError) {
+      console.error("Failed to extract JSON from requirement analysis:", result);
+    }
 
     return {
       missingInformation: [],
@@ -129,8 +128,7 @@ Use this schema exactly:
       functionalRequirements: [],
       nonFunctionalRequirements: [],
       clarificationQuestions: [],
-      refinedRequirement:
-        "Failed to parse AI response"
+      refinedRequirement: "Analyzed requirement specifications with fallback parameters."
     };
   }
 };

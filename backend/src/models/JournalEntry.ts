@@ -42,7 +42,8 @@ const journalEntrySchema =
           "under_review",
           "approved",
           "rejected",
-          "closed"
+          "closed",
+          "completed"
         ],
         default: "draft",
       },
@@ -116,6 +117,29 @@ const journalEntrySchema =
       complexityScore: {
         type: Number,
         default: 0
+      },
+
+      releaseOverride: {
+        type: String,
+        enum: [
+          "release1",
+          "release2",
+          "release3"
+        ],
+        default: null
+      },
+
+      versions: {
+        type: [
+          {
+            versionNumber: { type: Number, required: true },
+            content: { type: String, required: true },
+            title: { type: String, required: true },
+            modifiedBy: { type: String, required: true },
+            createdAt: { type: Date, default: Date.now }
+          }
+        ],
+        default: []
       }
     },
     {

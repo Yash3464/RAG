@@ -1,13 +1,26 @@
-import {
-  generateCompletion
-} from "./llm.service";
+import { generateCompletion } from "./llm.service";
 
-export const detectRelationship =
-async (
+const safeJsonParse = (text: string, fallback: any = {}) => {
+  try {
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    try {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (innerError) {
+      console.error("safeJsonParse relationship detector: Failed to parse:", text);
+    }
+    return fallback;
+  }
+};
+
+export const detectRelationship = async (
   sourceContent: string,
   targetContent: string
 ) => {
-
   const prompt = `
 Determine the relationship between:
 
@@ -34,16 +47,8 @@ Return ONLY JSON:
 }
 `;
 
-  const result =
-    await generateCompletion(
-      prompt,
-      0
-    );
+  const result = await generateCompletion(prompt, 0);
 
-  return JSON.parse(
-    result
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim()
-  );
+  const fallback = { relationship: "none" };
+  return safeJsonParse(result, fallback);
 };
