@@ -19,6 +19,42 @@ export default function Requirements() {
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
 
+  // Chat copilot state
+  const [showChat, setShowChat] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [loadingChat, setLoadingChat] = useState(false);
+
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || loadingChat) return;
+
+    const userMsg = { role: "user" as const, content: chatInput };
+    const updatedHistory = [...chatHistory, userMsg];
+    setChatHistory(updatedHistory);
+    setChatInput("");
+    setLoadingChat(true);
+
+    try {
+      const response = await api.post("/requirements/chat", {
+        messages: updatedHistory,
+        requirement: content,
+      });
+      setChatHistory([
+        ...updatedHistory,
+        { role: "assistant" as const, content: response.data.reply }
+      ]);
+    } catch (error) {
+      console.error(error);
+      setChatHistory([
+        ...updatedHistory,
+        { role: "assistant" as const, content: "Sorry, I encountered an error compiling that request." }
+      ]);
+    } finally {
+      setLoadingChat(false);
+    }
+  };
+
   const analyzeRequirement = async () => {
     try {
       setLoading(true);
@@ -586,6 +622,90 @@ export default function Requirements() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Floating Chat Copilot Button */}
+      <button
+        onClick={() => setShowChat(!showChat)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-tr from-[#7A39D8] to-[#E238A7] hover:scale-110 active:scale-95 text-white font-bold text-xl shadow-2xl flex items-center justify-center transition-all duration-300 z-[9999] cursor-pointer"
+        title="Chat with AI Copilot"
+      >
+        {showChat ? "✖️" : "💬"}
+      </button>
+
+      {/* Slide-out Chat Panel */}
+      <div
+        className={`fixed right-0 top-0 h-screen w-[380px] bg-[#070B42] border-l border-white/10 shadow-2xl z-[9998] flex flex-col justify-between p-6 transition-all duration-300 transform ${
+          showChat ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center border-b border-white/5 pb-4">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <span>🧠</span> AI Requirements Copilot
+            </h3>
+            <p className="text-white/40 text-[9px] uppercase font-mono mt-0.5 tracking-wider">Project Memory Advisor</p>
+          </div>
+          <button
+            onClick={() => setShowChat(false)}
+            className="text-white/40 hover:text-white text-xs transition cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Message Thread */}
+        <div className="flex-1 overflow-y-auto my-4 space-y-3 pr-1 custom-scrollbar">
+          {chatHistory.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center text-white/30 text-xs px-6 py-12">
+              <span className="text-3xl mb-3">🧠</span>
+              <p className="font-bold text-white/80">Refine Your Requirement with AI</p>
+              <p className="mt-1 opacity-70 leading-relaxed">
+                Type questions like "What compliance edge cases should I handle?" or "How can I rewrite this to be clearer?"
+              </p>
+            </div>
+          ) : (
+            chatHistory.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-md leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-[#FF4FA3]/20 border border-[#FF4FA3]/30 text-white rounded-br-none"
+                      : "bg-[#12184A] border border-white/5 text-white/90 rounded-bl-none"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))
+          )}
+          {loadingChat && (
+            <div className="flex justify-start">
+              <div className="bg-[#12184A] border border-white/5 rounded-2xl rounded-bl-none px-4 py-2.5 text-xs text-white/50 animate-pulse">
+                Thinking...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Chat input form */}
+        <form onSubmit={handleSendChatMessage} className="flex gap-2 pt-2 border-t border-white/5">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 bg-[#0D113D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF4FA3]/50 placeholder-white/20"
+          />
+          <button
+            type="submit"
+            disabled={loadingChat || !chatInput.trim()}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold text-xs transition cursor-pointer"
+          >
+            Send
+          </button>
+        </form>
       </div>
     </div>
   );
