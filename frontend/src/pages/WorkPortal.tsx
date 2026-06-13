@@ -493,44 +493,48 @@ export default function WorkPortal() {
                     ) : backlog.length === 0 ? (
                       <div className="text-white/30 text-xs py-10 text-center italic bg-[#0d113d]/30 border border-dashed border-white/5 rounded-xl">No active backlog tasks available.</div>
                     ) : (
-                      <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
-                        {getProcessedBacklog().map((item) => {
-                          const isSelected = selectedTaskId === item._id;
-                          const totalHours = (item.estimatedDevelopmentHours || 0) + (item.estimatedTestingHours || 0);
-                          
-                          let priorityColor = "border-blue-500/20 text-blue-400 bg-blue-500/5";
-                          if (item.priority === "critical") priorityColor = "border-red-500/20 text-red-400 bg-red-500/5 animate-pulse";
-                          else if (item.priority === "high") priorityColor = "border-orange-500/20 text-orange-400 bg-orange-500/5";
-                          else if (item.priority === "medium") priorityColor = "border-yellow-500/20 text-yellow-400 bg-yellow-500/5";
+                      <div className="max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {getProcessedBacklog().map((item) => {
+                            const isSelected = selectedTaskId === item._id;
+                            const totalHours = (item.estimatedDevelopmentHours || 0) + (item.estimatedTestingHours || 0);
+                            
+                            let priorityColor = "border-blue-500/20 text-blue-400 bg-blue-500/5";
+                            if (item.priority === "critical") priorityColor = "border-red-500/20 text-red-400 bg-red-500/5 animate-pulse";
+                            else if (item.priority === "high") priorityColor = "border-orange-500/20 text-orange-400 bg-orange-500/5";
+                            else if (item.priority === "medium") priorityColor = "border-yellow-500/20 text-yellow-400 bg-yellow-500/5";
 
-                          return (
-                            <div
-                              key={item._id}
-                              onClick={() => handleTaskChange(item._id)}
-                              className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
-                                isSelected
-                                  ? "bg-[#12184A] border-[#FF4FA3] shadow-lg shadow-[#FF4FA3]/5"
-                                  : "bg-[#0d113d]/45 border-white/5 hover:border-white/10 hover:bg-[#0d113d]/80"
-                              }`}
-                            >
-                              <div className="flex justify-between items-start gap-2">
-                                <h4 className="font-bold text-xs text-white/95 leading-relaxed flex-1">{item.content}</h4>
-                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${priorityColor}`}>
-                                  {item.priority}
-                                </span>
-                              </div>
-                              
-                              <div className="flex justify-between items-center text-[10px] text-white/40 pt-2 border-t border-white/5">
-                                <span className="capitalize text-pink-400 font-bold">{item.classification}</span>
-                                <div className="flex items-center gap-3">
-                                  <span>Hours: <strong className="text-white/80">{totalHours}h</strong></span>
-                                  <span>Complexity: <strong className="text-cyan-400">{item.complexityScore || 1}/5</strong></span>
-                                  <span>Score: <strong className="text-amber-400">{item.priorityScore || 0}</strong></span>
+                            return (
+                              <div
+                                key={item._id}
+                                onClick={() => handleTaskChange(item._id)}
+                                className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 hover:scale-[1.01] ${
+                                  isSelected
+                                    ? "bg-[#12184A] border-[#FF4FA3] shadow-lg shadow-[#FF4FA3]/5"
+                                    : "bg-[#0d113d]/45 border-white/5 hover:border-white/10 hover:bg-[#0d113d]/80"
+                                }`}
+                              >
+                                <div className="flex justify-between items-start gap-2">
+                                  <h4 className="font-bold text-xs text-white/95 leading-relaxed flex-1 line-clamp-2" title={item.content}>
+                                    {item.content}
+                                  </h4>
+                                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${priorityColor}`}>
+                                    {item.priority}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex justify-between items-center text-[9px] text-white/40 pt-2 border-t border-white/5">
+                                  <span className="capitalize text-pink-400 font-bold">{item.classification}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>Hours: <strong className="text-white/80">{totalHours}h</strong></span>
+                                    <span>Complexity: <strong className="text-cyan-400">{item.complexityScore || 1}/5</strong></span>
+                                    <span>Score: <strong className="text-amber-400">{item.priorityScore || 0}</strong></span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>

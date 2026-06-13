@@ -9,6 +9,27 @@ import {createDependencyMap} from "../services/dependency-mapper.service";
 import {generateImpactAnalysis} from "../services/impact-analysis.service";
 
 
+export const getReviewsController = async (req: Request, res: Response) => {
+  try {
+    const { status } = req.query;
+    const query: any = {};
+    if (status) {
+      query.status = status;
+    }
+    const reviews = await RequirementReviewModel.find(query).sort({ createdAt: -1 });
+    return res.status(200).json({
+      success: true,
+      reviews
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch reviews"
+    });
+  }
+};
+
 /*
 ========================================
 GET REVIEW
@@ -49,6 +70,9 @@ async (
     });
   }
 };
+
+import {generateFRD} from "../services/frd-generator.service";
+import {breakdownFRDTasks} from "../services/task-breakdown.service";
 
 /*
 ========================================
@@ -114,12 +138,24 @@ async (
         (masterRecord as any).refinedRequirement
       );
 
+    /*
+    Generate FRD (Functional Requirement Document)
+    */
+    const frd = await generateFRD(masterRecord._id.toString());
+
+    /*
+    Generate Task Breakdown
+    */
+    const tasks = await breakdownFRDTasks(frd._id.toString());
+
     return res.status(200).json({
       success: true,
       review,
       masterRecord,
       dependencyMap,
-      impactAnalysis
+      impactAnalysis,
+      frd,
+      tasks
     });
 
   } catch (error) {

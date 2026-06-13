@@ -58,6 +58,15 @@ export const analyzeSourceController = async (
       });
     }
 
+    // Check for duplicate document in db
+    const existingDoc = await DocumentModel.findOne({ title: sourceName });
+    if (existingDoc) {
+      return res.status(400).json({
+        success: false,
+        message: `A data source with the name "${sourceName}" has already been ingested in Project Memory.`
+      });
+    }
+
     // 2. Create Document entry for Project Memory
     const document = await DocumentModel.create({
       title: sourceName,
@@ -136,6 +145,152 @@ export const analyzeSourceController = async (
     return res.status(500).json({
       success: false,
       message: "Source analysis failed",
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+import { TaskModel } from "../models/Task";
+import { generateCompletion } from "../services/llm.service";
+
+export const convertMeetingController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const document = await DocumentModel.findById(id);
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found"
+      });
+    }
+
+    const chunks = await ChunkModel.find({ documentId: id }).sort({ pageNumber: 1 });
+    const fullContent = chunks.map(c => c.chunkText).join("\n\n");
+
+    const prompt = `
+You are a Lead Product Manager and Solution Architect.
+Review the following Minutes of Meeting (MOM) / Transcripts and extract:
+1. Product Requirements: New software requirements, modifications, or change requests.
+2. Action Items: Technical or product tasks that need direct development.
+
+MOM DOCUMENT CONTENT:
+\${fullContent.substring(0, 8000)}
+
+Format your response as a valid JSON object.
+
+JSON SCHEMA:
+{
+  "requirements": [
+    {
+      "title": "Enable multi-vendor onboarding",
+      "description": "System must support custom Stripe KYC checks for third-party sellers.",
+      "priority": "critical|high|medium|low"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Configure Stripe Webhook endpoint",
+      "description": "Establish listener routes for identity verification updates from Connect onboarding.",
+      "priority": "critical|high|medium|low",
+      "estimatedHours": 10
+    }
+  ]
+}
+
+CRITICAL RULES:
+- Return ONLY the raw JSON.
+- DO NOT wrap in markdown \`\`\`json blocks.
+- Generate high-fidelity and realistic requirements and tasks.
+- If there are no clear items, extract general logical steps based on the topics discussed.
+`;
+
+    const result = await generateCompletion(prompt, 0.2);
+    const cleanResult = result.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    const parsed = JSON.parse(cleanResult);
+    let requirementsCreated = 0;
+    let tasksCreated = 0;
+
+    // 1. Process Extracted Requirements
+    for (const reqItem of parsed.requirements || []) {
+      const journalItem = await JournalEntryModel.create({
+        content: reqItem.description || reqItem.title,
+        sourceType: "meeting",
+        classification: "requirement",
+        status: "draft", // Starts in draft/under-review status for requirements
+        priority: reqItem.priority || "medium",
+        priorityScore: reqItem.priority === "critical" ? 85 : (reqItem.priority === "high" ? 65 : 45),
+        complexityScore: 3,
+        estimatedDevelopmentHours: 12,
+        estimatedTestingHours: 4,
+        versions: [
+          {
+            versionNumber: 1,
+            content: reqItem.description || reqItem.title,
+            title: reqItem.title,
+            modifiedBy: (req as any).user?.email || "admin@brained.ai"
+          }
+        ]
+      });
+      requirementsCreated++;
+    }
+
+    // 2. Process Extracted Tasks
+    for (const taskItem of parsed.tasks || []) {
+      const journalItem = await JournalEntryModel.create({
+        content: `[Task] \${taskItem.title}: \${taskItem.description}`,
+        sourceType: "meeting",
+        classification: "task",
+        status: "approved", // Appears directly on release board as an engineering task
+        priority: taskItem.priority || "medium",
+        priorityScore: taskItem.priority === "critical" ? 85 : (taskItem.priority === "high" ? 65 : 45),
+        complexityScore: 2,
+        estimatedDevelopmentHours: taskItem.estimatedHours || 8,
+        estimatedTestingHours: Math.ceil((taskItem.estimatedHours || 8) / 2),
+        versions: [
+          {
+            versionNumber: 1,
+            content: `[Task] \${taskItem.title}: \${taskItem.description}`,
+            title: taskItem.title,
+            modifiedBy: (req as any).user?.email || "admin@brained.ai"
+          }
+        ]
+      });
+
+      await TaskModel.create({
+        journalId: journalItem._id,
+        title: taskItem.title,
+        description: taskItem.description,
+        taskType: "task",
+        priority: taskItem.priority || "medium",
+        priorityScore: journalItem.priorityScore,
+        status: "pending",
+        estimatedHours: (taskItem.estimatedHours || 8) + Math.ceil((taskItem.estimatedHours || 8) / 2),
+        aiGenerated: true,
+        acceptanceCriteria: ["Completed in line with meeting objectives."]
+      });
+      tasksCreated++;
+    }
+
+    await AuditLogModel.create({
+      action: "UPDATE",
+      targetId: id,
+      targetType: "document",
+      details: `Converted MOM document "\${document.title}" into \${requirementsCreated} requirements and \${tasksCreated} tasks.`,
+      performedBy: (req as any).user?.email || "admin@brained.ai",
+    });
+
+    return res.json({
+      success: true,
+      requirementsCreated,
+      tasksCreated
+    });
+
+  } catch (error) {
+    console.error("Failed to convert MOM meeting note:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to convert MOM meeting note",
       error: error instanceof Error ? error.message : String(error)
     });
   }

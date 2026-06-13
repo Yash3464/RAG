@@ -46,10 +46,20 @@ export default function Sidebar() {
       path: "/sources",
       icon: "📂",
     },
+    {
+      name: "SOW History",
+      path: "/sow",
+      icon: "📜",
+    },
   ];
 
   // Only show Admin Panel link if admin, Work Portal if employee
   if (user?.role === "admin") {
+    links.push({
+      name: "Requirement Master",
+      path: "/master",
+      icon: "👑",
+    });
     links.push({
       name: "Documentation Log",
       path: "/admin",

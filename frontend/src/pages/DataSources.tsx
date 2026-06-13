@@ -14,6 +14,7 @@ export default function DataSources() {
   const [files, setFiles] = useState<any[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [loadingMOM, setLoadingMOM] = useState(false);
 
   
   // URL Scraping state
@@ -477,6 +478,39 @@ ${jiraDesc}`;
                       <div className="font-bold text-pink-400 mt-1 text-sm">{selectedDoc.chunksCreated || 1} chunks</div>
                     </div>
                   </div>
+
+                  {/* Meeting Note Automation Card */}
+                  {(selectedDoc.classification === "meeting_note" || selectedDoc.sourceType === "meeting") && (
+                    <div className="bg-[#0D113D] rounded-xl p-5 border border-cyan-500/20 space-y-3">
+                      <span className="text-xs text-cyan-400 uppercase font-bold tracking-wider block">
+                        Meeting Note Automation
+                      </span>
+                      <p className="text-[11px] text-white/60 leading-relaxed">
+                        This source is parsed as meeting minutes. Run the agent to extract requirements and tasks.
+                      </p>
+                      <button
+                        onClick={async () => {
+                          try {
+                            setLoadingMOM(true);
+                            // Ensure we have correct id: documentId or ID
+                            const docId = selectedDoc.documentId || selectedDoc._id;
+                            const response = await api.post(`/sources/${docId}/convert-meeting`);
+                            alert(`Successfully ingested MOM! Created ${response.data.requirementsCreated} requirements and ${response.data.tasksCreated} engineering tasks.`);
+                            setSelectedDoc(null);
+                          } catch (err) {
+                            console.error(err);
+                            alert("Failed to ingest MOM meeting notes.");
+                          } finally {
+                            setLoadingMOM(false);
+                          }
+                        }}
+                        disabled={loadingMOM}
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 disabled:opacity-40 text-white font-bold text-xs cursor-pointer transition shadow-lg shadow-cyan-600/10"
+                      >
+                        {loadingMOM ? "Extracting Items..." : "⚡ Convert MOM to Backlog"}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Vector index metadata */}
                   <div className="bg-[#0D113D] rounded-xl p-5 border border-white/5 space-y-3">

@@ -503,3 +503,69 @@ Instructions:
     });
   }
 };
+
+import { RequirementMasterModel } from "../models/RequirementMaster";
+import { KnowledgeNodeModel } from "../models/KnowledgeNode";
+import { KnowledgeEdgeModel } from "../models/KnowledgeEdge";
+import { FRDModel } from "../models/FRD";
+
+export const getRequirementsMasterController = async (req: Request, res: Response) => {
+  try {
+    const requirements = await RequirementMasterModel.find().sort({ createdAt: -1 });
+    return res.json({
+      success: true,
+      requirements
+    });
+  } catch (error) {
+    console.error("Failed to get requirement master list:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch approved requirements"
+    });
+  }
+};
+
+export const deleteRequirementMasterController = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = await RequirementMasterModel.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Approved requirement not found"
+      });
+    }
+
+    // Cascade delete knowledge nodes/edges and FRDs
+    await KnowledgeNodeModel.deleteOne({ nodeId: deleted.requirementCode });
+    await KnowledgeEdgeModel.deleteMany({
+      $or: [
+        { sourceNodeId: deleted.requirementCode },
+        { targetNodeId: deleted.requirementCode }
+      ]
+    });
+    
+    // Also delete generated FRD
+    await FRDModel.deleteOne({ requirementMasterId: id });
+
+    // Log in audit log
+    await AuditLogModel.create({
+      action: "DELETE",
+      targetId: id,
+      targetType: "requirement_master",
+      details: `Deleted approved requirement master entry: "${deleted.title}" (cascade deleted node context and FRDs)`,
+      performedBy: (req as any).user?.email || "admin@brained.ai",
+    });
+
+    return res.json({
+      success: true,
+      message: "Approved requirement deleted successfully"
+    });
+  } catch (error) {
+    console.error("Failed to delete approved requirement:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete approved requirement"
+    });
+  }
+};

@@ -122,9 +122,9 @@ export default function Requirements() {
 
   // Helper to compute node positions dynamically in radial/star pattern
   const computeNodePositions = (nodes: any[], centralId: string) => {
-    const radius = 120;
-    const centerX = 200;
-    const centerY = 200;
+    const radius = 220; // Expanded radius
+    const centerX = 400; // Shifted center X to middle of 800px canvas
+    const centerY = 250; // Shifted center Y to middle of 500px canvas
     const otherNodes = nodes.filter((n) => n.nodeId !== centralId);
     
     return nodes.map((node) => {
@@ -148,7 +148,7 @@ export default function Requirements() {
     }
     const computed = computeNodePositions(graphData?.nodes || [], centralId);
     const matched = computed.find((n) => n.nodeId === node.nodeId);
-    return matched ? { x: matched.x, y: matched.y } : { x: 200, y: 200 };
+    return matched ? { x: matched.x, y: matched.y } : { x: 400, y: 250 };
   };
 
   const handlePointerDown = (nodeId: string) => {
@@ -159,10 +159,10 @@ export default function Requirements() {
     if (!draggedNodeId) return;
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 400;
-    const y = ((e.clientY - rect.top) / rect.height) * 340;
-    const boundedX = Math.max(20, Math.min(380, x));
-    const boundedY = Math.max(20, Math.min(320, y));
+    const x = ((e.clientX - rect.left) / rect.width) * 800;
+    const y = ((e.clientY - rect.top) / rect.height) * 500;
+    const boundedX = Math.max(60, Math.min(740, x));
+    const boundedY = Math.max(40, Math.min(460, y));
 
     setNodePositions((prev) => ({
       ...prev,
@@ -205,82 +205,81 @@ export default function Requirements() {
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 max-w-7xl mx-auto">
-      {/* Left Column: Input Form */}
-      <div className="xl:col-span-4 space-y-6">
-        <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#7A39D8]/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-2xl font-bold mb-4">Requirement Entry</h2>
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Left Column: Input Form */}
+        <div className="xl:col-span-4 space-y-6">
+          <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#7A39D8]/5 rounded-full blur-3xl pointer-events-none" />
+            <h2 className="text-2xl font-bold mb-4">Requirement Entry</h2>
 
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={12}
-            className="w-full bg-[#0D113D] rounded-xl p-4 text-white border border-white/10 focus:border-[#FF4FA3]/50 focus:outline-none placeholder-white/30 text-sm leading-relaxed"
-            placeholder="Example: Users must be verified using Stripe KYC before they can withdraw funds from their wallet, and withdrawals over $10k must require compliance officer approval."
-          />
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={12}
+              className="w-full bg-[#0D113D] rounded-xl p-4 text-white border border-white/10 focus:border-[#FF4FA3]/50 focus:outline-none placeholder-white/30 text-sm leading-relaxed"
+              placeholder="Example: Users must be verified using Stripe KYC before they can withdraw funds from their wallet, and withdrawals over $10k must require compliance officer approval."
+            />
 
-          <button
-            onClick={analyzeRequirement}
-            disabled={loading || !content.trim()}
-            className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-[#7A39D8] via-[#B637BF] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold tracking-wide transition shadow-lg cursor-pointer"
-          >
-            {loading ? "Analyzing Requirement..." : "Analyze Requirement"}
-          </button>
+            <button
+              onClick={analyzeRequirement}
+              disabled={loading || !content.trim()}
+              className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-[#7A39D8] via-[#B637BF] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold tracking-wide transition shadow-lg cursor-pointer"
+            >
+              {loading ? "Analyzing Requirement..." : "Analyze Requirement"}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Right Column: AI Analysis details & Graph & Recommendations */}
-      <div className="xl:col-span-8 space-y-6">
-        {!result && (
-          <div className="bg-[#12184A] p-12 rounded-2xl border border-white/10 text-center text-white/50 shadow-2xl">
-            <div className="text-5xl mb-4">🧠</div>
-            <h3 className="text-xl font-bold text-white mb-2">AI Product Intelligence</h3>
-            <p className="max-w-md mx-auto">
-              Enter a requirement or ticket to run semantic deduplication, priority scoring, effort estimates, knowledge graph builds, and cross-functional recommendation engines.
-            </p>
-          </div>
-        )}
-
-        {result?.error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 shadow-md">
-            <div className="text-red-400 font-bold text-lg mb-2">Analysis Failed</div>
-            <p className="text-white/80">{result.error}</p>
-          </div>
-        )}
-
-        {result?.duplicate && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-yellow-400 font-bold text-xl flex items-center gap-2">
-                <span>⚠️</span> Duplicate Entry Detected
-              </h3>
-              <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-xs font-semibold uppercase">
-                Existing Knowledge Node
-              </span>
-            </div>
-            <div>
-              <p className="text-white/60 text-xs">Duplicate content matched against project memory:</p>
-              <p className="mt-2 text-white italic bg-[#0D113D]/40 p-4 rounded-xl border border-white/5 text-sm leading-relaxed">
-                "{result.existing?.content}"
+        {/* Right Column: AI Analysis details */}
+        <div className="xl:col-span-8 space-y-6">
+          {!result && (
+            <div className="bg-[#12184A] p-12 rounded-2xl border border-white/10 text-center text-white/50 shadow-2xl">
+              <div className="text-5xl mb-4">🧠</div>
+              <h3 className="text-xl font-bold text-white mb-2">AI Product Intelligence</h3>
+              <p className="max-w-md mx-auto">
+                Enter a requirement or ticket to run semantic deduplication, priority scoring, effort estimates, knowledge graph builds, and cross-functional recommendation engines.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#12184A] p-3 rounded-xl">
-                <span className="text-white/40 text-xs uppercase font-semibold">Classification</span>
-                <div className="font-bold text-white mt-1 capitalize">{result.existing?.classification}</div>
+          )}
+
+          {result?.error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 shadow-md">
+              <div className="text-red-400 font-bold text-lg mb-2">Analysis Failed</div>
+              <p className="text-white/80">{result.error}</p>
+            </div>
+          )}
+
+          {result?.duplicate && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-yellow-400 font-bold text-xl flex items-center gap-2">
+                  <span>⚠️</span> Duplicate Entry Detected
+                </h3>
+                <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-xs font-semibold uppercase">
+                  Existing Knowledge Node
+                </span>
               </div>
-              <div className="bg-[#12184A] p-3 rounded-xl">
-                <span className="text-white/40 text-xs uppercase font-semibold">Priority</span>
-                <div className="font-bold text-white mt-1 capitalize">{result.existing?.priority}</div>
+              <div>
+                <p className="text-white/60 text-xs">Duplicate content matched against project memory:</p>
+                <p className="mt-2 text-white italic bg-[#0D113D]/40 p-4 rounded-xl border border-white/5 text-sm leading-relaxed">
+                  "{result.existing?.content}"
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#12184A] p-3 rounded-xl">
+                  <span className="text-white/40 text-xs uppercase font-semibold">Classification</span>
+                  <div className="font-bold text-white mt-1 capitalize">{result.existing?.classification}</div>
+                </div>
+                <div className="bg-[#12184A] p-3 rounded-xl">
+                  <span className="text-white/40 text-xs uppercase font-semibold">Priority</span>
+                  <div className="font-bold text-white mt-1 capitalize">{result.existing?.priority}</div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {result && !result.duplicate && !result.error && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Core Metrics */}
+          {result && !result.duplicate && !result.error && (
             <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
               <h3 className="text-xl font-bold mb-4 text-[#FF4FA3]">AI Analysis Summary</h3>
               <div className="grid grid-cols-4 gap-4">
@@ -314,22 +313,28 @@ export default function Requirements() {
                 </div>
               )}
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Knowledge Graph & Node Inspector (2:1 split) */}
-            {graphData && (
-              <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
-                <h3 className="text-xl font-bold mb-1">Knowledge Graph Context Map</h3>
-                <p className="text-white/50 text-xs mb-4">Drag nodes to position, click to select. All relationships adapt dynamically.</p>
+      {/* Full-width sections below the Entry & Summary Row */}
+      {result && !result.duplicate && !result.error && (
+        <div className="space-y-8 animate-fadeIn">
+          {/* Knowledge Graph & Node Inspector (now full width) */}
+          {graphData && (
+            <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-lg">
+              <h3 className="text-xl font-bold mb-1">Knowledge Graph Context Map</h3>
+              <p className="text-white/50 text-xs mb-4">Drag nodes to position, click to select. All relationships adapt dynamically.</p>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                  {/* Interactive SVG Diagram */}
-                  <div className="lg:col-span-2 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center items-center relative overflow-hidden h-[340px]">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+                {/* Interactive SVG Diagram */}
+                <div className="lg:col-span-3 bg-[#0D113D] border border-white/5 rounded-xl p-4 flex justify-center items-center relative overflow-auto h-[500px]">
                     {loadingGraph ? (
                       <div className="flex items-center justify-center text-white/50 text-xs h-full">Loading Graph...</div>
                     ) : (
                       <svg
-                        width="400"
-                        height="340"
+                        width="800"
+                        height="500"
                         className="overflow-visible select-none"
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
@@ -403,12 +408,11 @@ export default function Requirements() {
                               className="cursor-grab active:cursor-grabbing group"
                             >
                               <rect
-                                x={pos.x - 55}
-                                y={pos.y - 14}
-                                width={110}
-                                height={28}
-                                rx={6}
-                                ry={6}
+                                x={pos.x - 70}
+                                y={pos.y - 18}
+                                width={140}
+                                height={36}
+                                rx={8}
                                 fill={getNodeColor(node.nodeType, isCentral)}
                                 stroke={selectedNode?.nodeId === node.nodeId ? "#FFFFFF" : "rgba(255, 255, 255, 0.15)"}
                                 strokeWidth={selectedNode?.nodeId === node.nodeId ? 2 : 1}
@@ -420,10 +424,10 @@ export default function Requirements() {
                                 y={pos.y + 4}
                                 textAnchor="middle"
                                 fill="#FFFFFF"
-                                fontSize="8"
-                                className="font-bold select-none pointer-events-none"
+                                fontSize="9"
+                                className="font-bold select-none pointer-events-none tracking-wide"
                               >
-                                {node.title && node.title.length > 18 ? `${node.title.substring(0, 18)}...` : node.title}
+                                {node.title && node.title.length > 25 ? `${node.title.substring(0, 23)}...` : node.title}
                               </text>
                             </g>
                           );
@@ -433,7 +437,7 @@ export default function Requirements() {
                   </div>
 
                   {/* Selected Node Content Drawer */}
-                  <div className="bg-[#0D113D] border border-white/5 rounded-xl p-6 h-[340px] flex flex-col justify-between overflow-y-auto">
+                  <div className="bg-[#0D113D] border border-white/5 rounded-xl p-6 h-[500px] flex flex-col justify-between overflow-y-auto">
                     <div>
                       <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <span>🔍</span> Node Inspector
@@ -622,7 +626,6 @@ export default function Requirements() {
             )}
           </div>
         )}
-      </div>
 
       {/* Floating Chat Copilot Button */}
       <button
@@ -635,7 +638,7 @@ export default function Requirements() {
 
       {/* Slide-out Chat Panel */}
       <div
-        className={`fixed right-0 top-0 h-screen w-[380px] bg-[#070B42] border-l border-white/10 shadow-2xl z-[9998] flex flex-col justify-between p-6 transition-all duration-300 transform ${
+        className={`fixed right-0 top-0 h-screen w-full md:w-[75vw] bg-[#070B42] border-l border-white/10 shadow-2xl z-[9998] flex flex-col justify-between p-6 transition-all duration-300 transform ${
           showChat ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -655,57 +658,123 @@ export default function Requirements() {
           </button>
         </div>
 
-        {/* Message Thread */}
-        <div className="flex-1 overflow-y-auto my-4 space-y-3 pr-1 custom-scrollbar">
-          {chatHistory.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center text-white/30 text-xs px-6 py-12">
-              <span className="text-3xl mb-3">🧠</span>
-              <p className="font-bold text-white/80">Refine Your Requirement with AI</p>
-              <p className="mt-1 opacity-70 leading-relaxed">
-                Type questions like "What compliance edge cases should I handle?" or "How can I rewrite this to be clearer?"
-              </p>
-            </div>
-          ) : (
-            chatHistory.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-md leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-[#FF4FA3]/20 border border-[#FF4FA3]/30 text-white rounded-br-none"
-                      : "bg-[#12184A] border border-white/5 text-white/90 rounded-bl-none"
-                  }`}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))
-          )}
-          {loadingChat && (
-            <div className="flex justify-start">
-              <div className="bg-[#12184A] border border-white/5 rounded-2xl rounded-bl-none px-4 py-2.5 text-xs text-white/50 animate-pulse">
-                Thinking...
+        {/* Content Workspace Split Panel */}
+        <div className="flex-1 flex flex-col md:flex-row gap-6 my-4 overflow-hidden h-[calc(100vh-140px)]">
+          
+          {/* Left Panel: Preview of sent requirement & AI recommendations/data */}
+          <div className="flex-[4] flex flex-col gap-4 overflow-y-auto pr-2 border-b md:border-b-0 md:border-r border-white/5 custom-scrollbar">
+            
+            {/* Requirement Preview Card */}
+            <div className="bg-[#0D113D] border border-white/5 rounded-xl p-4 space-y-2">
+              <h4 className="text-[10px] uppercase text-[#FF4FA3] font-bold font-mono tracking-wider">Requirement Text Preview</h4>
+              <div className="bg-[#070b30]/80 p-3 rounded-lg border border-white/5 max-h-[180px] overflow-y-auto text-xs text-white/95 leading-relaxed whitespace-pre-wrap select-text custom-scrollbar">
+                {content || <span className="text-white/30 italic">No requirement text entered in editor.</span>}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Chat input form */}
-        <form onSubmit={handleSendChatMessage} className="flex gap-2 pt-2 border-t border-white/5">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-[#0D113D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF4FA3]/50 placeholder-white/20"
-          />
-          <button
-            type="submit"
-            disabled={loadingChat || !chatInput.trim()}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold text-xs transition cursor-pointer"
-          >
-            Send
-          </button>
-        </form>
+            {/* AI Data Received Card */}
+            <div className="bg-[#0D113D] border border-white/5 rounded-xl p-4 space-y-3 flex-1 flex flex-col overflow-hidden">
+              <h4 className="text-[10px] uppercase text-cyan-400 font-bold font-mono tracking-wider">Automated Analysis & Gaps</h4>
+              <div className="overflow-y-auto pr-1 flex-1 space-y-3 custom-scrollbar text-xs">
+                {recs ? (
+                  <div className="space-y-3">
+                    {recs.blindSpots?.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-purple-400 font-mono block">⚠️ Blind Spots</span>
+                        <ul className="list-disc ml-4 text-[11px] text-white/70 space-y-1">
+                          {recs.blindSpots.map((item: any, idx: number) => (
+                            <li key={idx}><strong className="text-white">{item.spot}</strong>: {item.solution}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {recs.edgeCases?.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-yellow-400 font-mono block">⚙️ QA Edge Cases</span>
+                        <ul className="list-disc ml-4 text-[11px] text-white/70 space-y-1">
+                          {recs.edgeCases.map((item: any, idx: number) => (
+                            <li key={idx}><strong className="text-white">{item.case}</strong>: {item.handling}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {recs.security?.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-red-400 font-mono block">🛡️ Security Mitigations</span>
+                        <ul className="list-disc ml-4 text-[11px] text-white/70 space-y-1">
+                          {recs.security.map((item: any, idx: number) => (
+                            <li key={idx}><strong className="text-white">{item.concern}</strong> &rarr; {item.mitigation}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-white/30 italic text-center py-12">
+                    Submit a requirement for analysis to view compliance, QA cases, and scaling details side-by-side.
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Panel: Chat Copilot Thread */}
+          <div className="flex-[6] flex flex-col justify-between overflow-hidden h-full">
+            {/* Message Thread */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar pb-4 animate-fadeIn">
+              {chatHistory.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center text-white/30 text-xs px-6 py-12">
+                  <span className="text-3xl mb-3">🧠</span>
+                  <p className="font-bold text-white/80">Refine Your Requirement with AI</p>
+                  <p className="mt-1 opacity-70 leading-relaxed">
+                    Type questions like "What compliance edge cases should I handle?" or "How can I rewrite this to be clearer?"
+                  </p>
+                </div>
+              ) : (
+                chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-md leading-relaxed whitespace-pre-wrap ${
+                        msg.role === "user"
+                          ? "bg-[#FF4FA3]/25 border border-[#FF4FA3]/40 text-white rounded-br-none"
+                          : "bg-[#12184A] border border-white/5 text-white/90 rounded-bl-none"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))
+              )}
+              {loadingChat && (
+                <div className="flex justify-start">
+                  <div className="bg-[#12184A] border border-white/5 rounded-2xl rounded-bl-none px-4 py-2.5 text-xs text-white/50 animate-pulse">
+                    Thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat input form */}
+            <form onSubmit={handleSendChatMessage} className="flex gap-2 pt-3 border-t border-white/5">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-[#0D113D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF4FA3]/50 placeholder-white/20"
+              />
+              <button
+                type="submit"
+                disabled={loadingChat || !chatInput.trim()}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 disabled:opacity-40 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+
+        </div>
       </div>
     </div>
   );

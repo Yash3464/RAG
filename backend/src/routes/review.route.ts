@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  getReviewsController,
   getReviewController,
   approveReviewController,
   requestChangeController,
@@ -10,6 +11,11 @@ from "../controllers/review.controller";
 
 const router =
   Router();
+
+router.get(
+  "/",
+  getReviewsController
+);
 
 router.get(
   "/:id",

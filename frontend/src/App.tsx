@@ -15,6 +15,9 @@ import DataSources from "./pages/DataSources";
 import Login from "./pages/Login";
 import AdminPanel from "./pages/AdminPanel";
 import WorkPortal from "./pages/WorkPortal";
+import RequirementMaster from "./pages/RequirementMaster";
+import SOWPortal from "./pages/SOWPortal";
+import SOWHistory from "./pages/SOWHistory";
 
 function App() {
   const [user, setUser] = useState<{ email: string; role: "admin" | "employee" } | null>(null);
@@ -42,6 +45,11 @@ function App() {
           <Route
             path="/requirements"
             element={<Requirements />}
+          />
+
+          <Route
+            path="/master"
+            element={<RequirementMaster />}
           />
 
           <Route
@@ -81,6 +89,20 @@ function App() {
             path="/work-portal"
             element={
               <WorkPortal />
+            }
+          />
+
+          <Route
+            path="/sow"
+            element={
+              <SOWPortal />
+            }
+          />
+
+          <Route
+            path="/sow/:id"
+            element={
+              <SOWHistory />
             }
           />
         </Routes>

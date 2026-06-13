@@ -20,6 +20,8 @@ import recommendationRoutes from "./routes/recommendation.route";
 import graphRoutes from "./routes/graph.route";
 import authRoutes from "./routes/auth.route";
 import adminRoutes from "./routes/admin.route";
+import frdRoutes from "./routes/frd.route";
+import sowRoutes from "./routes/sow.route";
 
 
 const app = express();
@@ -42,6 +44,8 @@ app.use("/api/sources",sourceRoutes);
 app.use("/api", recommendationRoutes);
 app.use("/api", graphRoutes);
 app.use("/api", adminRoutes);
+app.use("/api", frdRoutes);
+app.use("/api/sow", sowRoutes);
 
 app.use((req, res, next) => {
   console.log(
