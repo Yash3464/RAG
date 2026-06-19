@@ -23,6 +23,14 @@ const sowUpdateSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    oldContext: {
+      type: String,
+      default: "",
+    },
+    newContext: {
+      type: String,
+      default: "",
+    },
     changesExtracted: [
       {
         changeType: {

@@ -10,7 +10,15 @@ const sowSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    mainContext: {
+    projectName: {
+      type: String,
+      required: true,
+    },
+    mainContext: { // Will store the Summary of the SOW
+      type: String,
+      required: true,
+    },
+    fullContext: { // Will store the Full raw text of SOW
       type: String,
       required: true,
     },
@@ -29,6 +37,6 @@ const sowSchema = new mongoose.Schema(
   }
 );
 
-sowSchema.index({ title: 1, clientName: 1 }, { unique: true });
+sowSchema.index({ projectName: 1, clientName: 1 }, { unique: true });
 
 export const SOWModel = mongoose.model("SOW", sowSchema);

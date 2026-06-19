@@ -4,12 +4,12 @@ export const compareSOWContexts = async (
   originalContext: string,
   newContext: string
 ) => {
-  const cleanOriginal = originalContext.length > 5000 
-    ? originalContext.substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
-    : originalContext;
-  const cleanNew = newContext.length > 5000 
-    ? newContext.substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
-    : newContext;
+  const cleanOriginal = (originalContext || "").length > 5000 
+    ? (originalContext || "").substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
+    : (originalContext || "");
+  const cleanNew = (newContext || "").length > 5000 
+    ? (newContext || "").substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
+    : (newContext || "");
 
   const prompt = `
 You are a Principal Product Manager and Technical Contract Auditor.

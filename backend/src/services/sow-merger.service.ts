@@ -4,9 +4,9 @@ export const mergeSOWContexts = async (
   originalContext: string,
   changes: any[]
 ) => {
-  const cleanOriginal = originalContext.length > 5000 
-    ? originalContext.substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
-    : originalContext;
+  const cleanOriginal = (originalContext || "").length > 5000 
+    ? (originalContext || "").substring(0, 5000) + "\n...[TRUNCATED TO PREVENT TOKEN LIMIT OVERFLOWS]..."
+    : (originalContext || "");
 
   const prompt = `
 You are a Principal Product Manager and Technical Contract Auditor.

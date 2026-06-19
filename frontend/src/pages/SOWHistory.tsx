@@ -18,6 +18,8 @@ interface SOWUpdate {
   rawText: string;
   isMerged: boolean;
   changesExtracted: ChangeItem[];
+  oldContext?: string;
+  newContext?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,12 +28,51 @@ interface SOW {
   _id: string;
   title: string;
   clientName: string;
+  projectName: string;
   mainContext: string;
+  fullContext: string;
   currentVersion: number;
   status: string;
   createdAt: string;
   updatedAt: string;
 }
+
+// IDE Mock code editor window for readable diff snapshots
+const EditorWindow = ({
+  title,
+  badge,
+  content,
+  badgeColor,
+}: {
+  title: string;
+  badge: string;
+  content: string;
+  badgeColor: string;
+}) => {
+  return (
+    <div className="bg-[#0b1033] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col min-h-[480px]">
+      {/* OS Mock Titlebar */}
+      <div className="bg-[#070b24] px-4 py-3 flex items-center justify-between border-b border-white/5 select-none">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#27C93F]" />
+        </div>
+        <span className="text-[10px] font-mono text-white/50 tracking-wider font-bold">{title}</span>
+        <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase font-mono tracking-wider ${badgeColor}`}>
+          {badge}
+        </span>
+      </div>
+      
+      {/* Code Text Area */}
+      <div className="p-4 flex-1 bg-[#050821] overflow-y-auto max-h-[520px] custom-scrollbar select-text">
+        <pre className="text-white/80 text-[11px] font-mono leading-relaxed whitespace-pre-wrap select-text">
+          {content || "(Empty document context)"}
+        </pre>
+      </div>
+    </div>
+  );
+};
 
 export default function SOWHistory() {
   const { id } = useParams<{ id: string }>();
@@ -44,10 +85,18 @@ export default function SOWHistory() {
   const [loading, setLoading] = useState(true);
   const [merging, setMerging] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<SOWUpdate | null>(null);
+  
+  // Tab and comparison states
+  const [activeTab, setActiveTab] = useState<"summary" | "full">("summary");
+  const [showSnapshotCompare, setShowSnapshotCompare] = useState(false);
 
   useEffect(() => {
     fetchHistory();
   }, [id]);
+
+  useEffect(() => {
+    setShowSnapshotCompare(false);
+  }, [selectedUpdate]);
 
   const fetchHistory = async () => {
     try {
@@ -77,7 +126,7 @@ export default function SOWHistory() {
       alert("Successfully merged approved diff updates into Main SOW Context!");
     } catch (err) {
       console.error("Failed to merge SOW update:", err);
-      alert("Failed to merge updates. Verify Groq API limits.");
+      alert("Failed to merge updates. Verify Groq/LLM SDK capacity.");
     } finally {
       setMerging(false);
     }
@@ -98,6 +147,28 @@ export default function SOWHistory() {
     );
   }
 
+  // Calculate dynamic context to show on the left panel tab based on the selected version
+  const getDisplayedContent = () => {
+    if (activeTab === "summary") {
+      return sow.mainContext;
+    }
+
+    // Full Document Context Tab: dynamically display the state at the selected version
+    if (selectedUpdate) {
+      if (selectedUpdate.isMerged) {
+        // For merged updates, display the post-merge context snapshot
+        // If snapshot is empty (legacy), fall back to rawText (which is the V1 context)
+        return selectedUpdate.newContext || selectedUpdate.rawText || "";
+      } else {
+        // For pending/draft updates, display the raw uploaded proposed text
+        return selectedUpdate.rawText || "";
+      }
+    }
+
+    // Default fallback to active SOW full context
+    return sow.fullContext || sow.mainContext || "";
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header breadcrumbs */}
@@ -108,9 +179,9 @@ export default function SOWHistory() {
               SOW Portal
             </span>
             <span>&rarr;</span>
-            <span className="text-white/60">{sow.clientName}</span>
+            <span className="text-white/60">{sow.clientName} ({sow.title})</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-white">{sow.title}</h1>
+          <h1 className="text-2xl font-extrabold text-white">{sow.projectName}</h1>
         </div>
 
         <button
@@ -121,22 +192,84 @@ export default function SOWHistory() {
         </button>
       </div>
 
+      {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: SOW Main Context (60% width / 7 cols) */}
-        <div className="lg:col-span-7 bg-[#12184A] rounded-2xl border border-white/10 shadow-2xl p-6 space-y-4">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📜</span> Main Contract Context
-            </h2>
-            <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-              ACTIVE VERSION V{sow.currentVersion}
-            </span>
+        {/* Left Column: SOW Main Context (60% width / 7 cols) with Tabs */}
+        <div className="lg:col-span-7 bg-[#12184A] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col">
+          {/* Tabs bar */}
+          <div className="flex border-b border-white/10 bg-[#0e133c]">
+            <button
+              onClick={() => setActiveTab("summary")}
+              className={`flex-1 py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                activeTab === "summary"
+                  ? "border-[#FF4FA3] text-white bg-white/5"
+                  : "border-transparent text-white/40 hover:text-white/70 hover:bg-white/5"
+              }`}
+            >
+              📋 Project Summary
+            </button>
+            <button
+              onClick={() => setActiveTab("full")}
+              className={`flex-1 py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                activeTab === "full"
+                  ? "border-[#FF4FA3] text-white bg-white/5"
+                  : "border-transparent text-white/40 hover:text-white/70 hover:bg-white/5"
+              }`}
+            >
+              📄 Full Document Context
+            </button>
           </div>
 
-          <div className="bg-[#0D113D] border border-white/5 rounded-xl p-5 min-h-[500px] max-h-[700px] overflow-y-auto custom-scrollbar select-text">
-            <pre className="text-white/90 text-xs font-mono leading-relaxed whitespace-pre-wrap select-text pr-2">
-              {sow.mainContext}
-            </pre>
+          <div className="p-6 space-y-4">
+            {/* Version Metadata Row */}
+            <div className="flex justify-between items-center">
+              <span className="text-white/50 text-xs font-bold uppercase tracking-wider">
+                {activeTab === "summary" 
+                  ? "AI Executive Summary View" 
+                  : selectedUpdate 
+                    ? `Contract Version V${selectedUpdate.versionNumber} - ${selectedUpdate.isMerged ? "Merged state" : "Draft proposal"}` 
+                    : "Complete Contract Text View"
+                }
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
+                selectedUpdate
+                  ? selectedUpdate.isMerged
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+              }`}>
+                {selectedUpdate 
+                  ? `SELECTED V${selectedUpdate.versionNumber}` 
+                  : `ACTIVE VERSION V${sow.currentVersion}`
+                }
+              </span>
+            </div>
+
+            {/* Banner Warnings */}
+            {activeTab === "summary" && selectedUpdate && selectedUpdate.versionNumber !== sow.currentVersion && (
+              <div className="bg-[#0b1236]/80 border border-cyan-500/20 px-4 py-2.5 rounded-xl text-xs text-cyan-300 animate-fadeIn select-none">
+                <span>ℹ️ Showing cumulative active project summary. Select <strong>Full Document Context</strong> to review SOW text at version V{selectedUpdate.versionNumber}.</span>
+              </div>
+            )}
+
+            {activeTab === "full" && selectedUpdate && !selectedUpdate.isMerged && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 px-4 py-2.5 rounded-xl text-xs text-yellow-300 animate-fadeIn select-none">
+                <span>⚠️ Reviewing <strong>Proposed Draft V{selectedUpdate.versionNumber}</strong>. These edits are draft changes and are not yet merged into the main context.</span>
+              </div>
+            )}
+
+            {activeTab === "full" && selectedUpdate && selectedUpdate.isMerged && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-xl text-xs text-emerald-300 animate-fadeIn select-none">
+                <span>✅ Reviewing <strong>Merged Version V{selectedUpdate.versionNumber}</strong>. This represents the contract state after merging this version's updates.</span>
+              </div>
+            )}
+
+            {/* Main Text scroll container */}
+            <div className="bg-[#0D113D] border border-white/5 rounded-xl p-5 min-h-[500px] max-h-[700px] overflow-y-auto custom-scrollbar select-text animate-fadeIn">
+              <pre className="text-white/90 text-xs font-mono leading-relaxed whitespace-pre-wrap select-text pr-2">
+                {getDisplayedContent()}
+              </pre>
+            </div>
           </div>
         </div>
 
@@ -221,7 +354,7 @@ export default function SOWHistory() {
               )}
 
               {/* List of changes */}
-              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1 custom-scrollbar">
                 {selectedUpdate.changesExtracted.map((change, idx) => {
                   let borderStyle = "border-green-500/30 bg-green-500/5";
                   let badgeText = "ADDITION";
@@ -296,6 +429,54 @@ export default function SOWHistory() {
           )}
         </div>
       </div>
+
+      {/* Snapshot Comparison Panel (Full Width below Main Context and Timeline) */}
+      {selectedUpdate && ((selectedUpdate.isMerged && (selectedUpdate.oldContext || selectedUpdate.newContext)) || !selectedUpdate.isMerged) && (
+        <div className="bg-[#12184A] p-6 rounded-2xl border border-white/10 shadow-2xl space-y-4 animate-fadeIn">
+          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span>📸</span> {selectedUpdate.isMerged ? "MERGED SNAPSHOTS" : "PROPOSED CHANGES CONTEXT"}
+              </h4>
+              <p className="text-xs text-white/40">
+                {selectedUpdate.isMerged 
+                  ? "Compare full contract text before and after merging this version."
+                  : "Compare current active contract with the proposed draft upload."}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSnapshotCompare(!showSnapshotCompare)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                showSnapshotCompare
+                  ? "bg-white/5 text-white/80 border-white/10 hover:bg-white/10"
+                  : "bg-[#FF4FA3]/15 text-[#FF4FA3] hover:bg-[#FF4FA3]/25 border-[#FF4FA3]/30"
+              }`}
+            >
+              {showSnapshotCompare ? "Hide Snapshots" : "Compare Text"}
+            </button>
+          </div>
+          
+          {showSnapshotCompare && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn pt-2">
+              {/* Left Window: Before/Current */}
+              <EditorWindow
+                title={selectedUpdate.isMerged ? "Pre-Merge Document State" : "Current Active Contract"}
+                badge="Before Merge"
+                badgeColor="bg-white/10 text-white/60"
+                content={selectedUpdate.isMerged ? (selectedUpdate.oldContext || "(Empty baseline)") : (sow.fullContext || sow.mainContext)}
+              />
+
+              {/* Right Window: After/Proposed */}
+              <EditorWindow
+                title={selectedUpdate.isMerged ? "Post-Merge Document State" : "Proposed Draft Upload"}
+                badge={selectedUpdate.isMerged ? "Merged V" + selectedUpdate.versionNumber : "Proposed V" + selectedUpdate.versionNumber}
+                badgeColor={selectedUpdate.isMerged ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-[#FF4FA3]/20 text-[#FF4FA3] border border-[#FF4FA3]/30 animate-pulse"}
+                content={selectedUpdate.isMerged ? (selectedUpdate.newContext || "(No context captured)") : selectedUpdate.rawText}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

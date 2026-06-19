@@ -4,6 +4,7 @@ import { SOWUpdateModel } from "../models/SOWUpdate";
 import { compareSOWContexts } from "../services/sow-comparison.service";
 import { mergeSOWContexts } from "../services/sow-merger.service";
 import { parseContent } from "../services/file-parser.service";
+import { summarizeSOW } from "../services/sow-summarizer.service";
 
 // List all client SOW folders
 export const getSOWsController = async (req: Request, res: Response) => {
@@ -35,7 +36,39 @@ export const getSOWHistoryController = async (req: Request, res: Response) => {
       });
     }
 
+    // Auto-migrate legacy SOW if fullContext is missing
+    if (!sow.fullContext) {
+      console.log(`[Migration] Legacy SOW found for project: ${sow.projectName}. Migrating to dual-context...`);
+      sow.fullContext = sow.mainContext; // mainContext was the full text in V1
+      try {
+        const summary = await summarizeSOW(sow.fullContext);
+        sow.mainContext = summary;
+        await sow.save();
+        console.log(`[Migration] Legacy SOW migrated successfully.`);
+      } catch (err) {
+        console.error("[Migration] Failed to generate AI summary on-the-fly:", err);
+        // Keep moving forward even if LLM fails
+      }
+    }
+
     const updates = await SOWUpdateModel.find({ sowId: id }).sort({ versionNumber: -1 });
+
+    // Auto-migrate legacy updates
+    for (const update of updates) {
+      let changed = false;
+      if (update.versionNumber === 1 && !update.newContext) {
+        update.newContext = update.rawText;
+        changed = true;
+      }
+      if (update.isMerged && !update.newContext) {
+        update.newContext = update.rawText;
+        changed = true;
+      }
+      if (changed) {
+        await update.save();
+      }
+    }
+
     return res.json({
       success: true,
       sow,
@@ -56,7 +89,15 @@ export const uploadSOWController = async (req: Request, res: Response) => {
   try {
     let rawText = "";
     let sowTitle = "";
-    const clientName = req.body.clientName || "Client";
+    const clientName = req.body.clientName;
+    const projectName = req.body.projectName;
+
+    if (!clientName || !projectName) {
+      return res.status(400).json({
+        success: false,
+        message: "Client Name and Project Name are required",
+      });
+    }
 
     if (req.file) {
       sowTitle = req.file.originalname;
@@ -78,15 +119,20 @@ export const uploadSOWController = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if an SOW with the same title and client exists
-    const existingSOW = await SOWModel.findOne({ title: sowTitle, clientName });
+    // Check if an SOW with the same project and client exists
+    const existingSOW = await SOWModel.findOne({ projectName, clientName });
 
     if (!existingSOW) {
-      // 1. First upload: create SOW main context
+      // 1. First upload: create SOW main context (Summary) and fullContext (Full Text)
+      console.log(`Generating initial summary for new SOW project: ${projectName}...`);
+      const summary = await summarizeSOW(rawText);
+
       const newSOW = await SOWModel.create({
         title: sowTitle,
         clientName,
-        mainContext: rawText,
+        projectName,
+        mainContext: summary, // Executive Summary
+        fullContext: rawText, // Raw complete text
         currentVersion: 1,
       });
 
@@ -96,6 +142,8 @@ export const uploadSOWController = async (req: Request, res: Response) => {
         versionNumber: 1,
         rawText,
         isMerged: true,
+        oldContext: "", // Baseline has no old context
+        newContext: rawText,
         changesExtracted: [
           {
             changeType: "addition",
@@ -113,15 +161,22 @@ export const uploadSOWController = async (req: Request, res: Response) => {
         sow: newSOW,
       });
     } else {
-      // 2. Re-upload: detect changes & trigger comparison
+      // 2. Re-upload: update file title to latest filename, detect changes & trigger comparison
+      existingSOW.title = sowTitle;
+      await existingSOW.save();
+
       const nextVersion = existingSOW.currentVersion + 1;
-      const changes = await compareSOWContexts(existingSOW.mainContext, rawText);
+      // We compare fullContext (the raw full text) with the new rawText
+      console.log(`Comparing SOW revisions for project: ${projectName}...`);
+      const changes = await compareSOWContexts(existingSOW.fullContext, rawText);
 
       const sowUpdate = await SOWUpdateModel.create({
         sowId: existingSOW._id,
         versionNumber: nextVersion,
         rawText,
         isMerged: false,
+        oldContext: "", // Will be populated when merged
+        newContext: "", // Will be populated when merged
         changesExtracted: changes,
       });
 
@@ -171,17 +226,26 @@ export const mergeSOWUpdateController = async (req: Request, res: Response) => {
       });
     }
 
-    // Call merger LLM service
+    // Call merger LLM service using fullContext
+    console.log(`Merging SOW updates into full context for update V${updateDoc.versionNumber}...`);
+    const oldContext = sowDoc.fullContext || sowDoc.mainContext || "";
     const mergedContext = await mergeSOWContexts(
-      sowDoc.mainContext,
+      oldContext,
       updateDoc.changesExtracted
     );
 
-    sowDoc.mainContext = mergedContext;
+    // Generate a fresh summary from the newly merged context
+    console.log(`Generating updated summary for SOW project: ${sowDoc.projectName}...`);
+    const newSummary = await summarizeSOW(mergedContext);
+
+    sowDoc.mainContext = newSummary;
+    sowDoc.fullContext = mergedContext;
     sowDoc.currentVersion = updateDoc.versionNumber;
     await sowDoc.save();
 
     updateDoc.isMerged = true;
+    updateDoc.oldContext = oldContext;
+    updateDoc.newContext = mergedContext;
     await updateDoc.save();
 
     return res.json({

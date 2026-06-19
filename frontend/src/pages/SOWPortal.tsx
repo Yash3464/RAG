@@ -6,7 +6,9 @@ interface SOW {
   _id: string;
   title: string;
   clientName: string;
+  projectName: string;
   mainContext: string;
+  fullContext: string;
   currentVersion: number;
   status: string;
   createdAt: string;
@@ -19,6 +21,7 @@ export default function SOWPortal() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [clientName, setClientName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
   // Revision detection modal state
@@ -58,7 +61,8 @@ export default function SOWPortal() {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("clientName", clientName || "Client");
+    formData.append("clientName", clientName);
+    formData.append("projectName", projectName);
 
     try {
       const response = await api.post("/sow/upload", formData, {
@@ -69,6 +73,7 @@ export default function SOWPortal() {
 
       setFile(null);
       setClientName("");
+      setProjectName("");
 
       // If revision is detected, show confirmation modal
       if (response.data.isUpdate) {
@@ -126,6 +131,20 @@ export default function SOWPortal() {
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="e.g. Stripe, Google"
+                  required
+                  className="w-full bg-[#0D113D] rounded-xl p-3 text-white border border-white/10 focus:border-[#FF4FA3]/50 focus:outline-none placeholder-white/20 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-white/50 text-xs font-semibold uppercase tracking-wider mb-2">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="e.g. Billing Integration, Database Upgrade"
                   required
                   className="w-full bg-[#0D113D] rounded-xl p-3 text-white border border-white/10 focus:border-[#FF4FA3]/50 focus:outline-none placeholder-white/20 text-sm"
                 />
@@ -192,8 +211,9 @@ export default function SOWPortal() {
                           V{sow.currentVersion}
                         </span>
                       </div>
-                      <h3 className="text-white font-bold text-sm leading-snug line-clamp-2 pr-4">{sow.title}</h3>
-                      <p className="text-white/40 text-[10px] mt-2 font-semibold">
+                      <h3 className="text-white font-bold text-sm leading-snug line-clamp-2 pr-4">{sow.projectName}</h3>
+                      <p className="text-white/50 text-[11px] mt-1.5 italic font-mono truncate" title={sow.title}>{sow.title}</p>
+                      <p className="text-white/40 text-[10px] mt-2.5 font-semibold">
                         Uploaded: {new Date(sow.createdAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -234,7 +254,7 @@ export default function SOWPortal() {
 
             <div>
               <p className="text-white/80 text-xs leading-relaxed">
-                An SOW with the title <strong className="text-white">"{revisionDetails.sow.title}"</strong> has already been ingested. We detected the following AI-extracted differences between this new upload and the existing Main SOW context:
+                An SOW for project <strong className="text-white">"{revisionDetails.sow.projectName}"</strong> has already been ingested. We detected the following AI-extracted differences between this new upload and the existing Main SOW context:
               </p>
             </div>
 
