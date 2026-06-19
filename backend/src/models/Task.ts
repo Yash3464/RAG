@@ -22,6 +22,7 @@ const taskSchema =
         type: String,
         enum: [
           "requirement",
+          "task",
           "bug",
           "issue",
           "change_request",
