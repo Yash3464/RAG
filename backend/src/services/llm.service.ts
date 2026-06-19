@@ -9,29 +9,80 @@ async (
   prompt: string,
   temperature: number = 0.2
 ) => {
+  try {
+    const completion =
+      await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature
+      });
 
-  const completion =
-    await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature
+    const result =
+      completion.choices[0]
+        .message.content || "{}";
+
+    console.log("[LLM]", {
+      promptLength: prompt.length,
+      responseLength: result.length
     });
 
-  const result =
-    completion.choices[0]
-      .message.content || "{}";
+    return result;
+  } catch (error: any) {
+    console.warn("LLM main model llama-3.3-70b-versatile failed, trying fallback llama-3.1-8b-instant...", error.message || error);
+    try {
+      const completion =
+        await groq.chat.completions.create({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature
+        });
 
-  console.log("[LLM]", {
-    promptLength: prompt.length,
-    responseLength: result.length
-  });
+      const result =
+        completion.choices[0]
+          .message.content || "{}";
 
-  return result;
+      console.log("[LLM Fallback]", {
+        promptLength: prompt.length,
+        responseLength: result.length
+      });
+
+      return result;
+    } catch (fallbackError: any) {
+      console.warn("LLM fallback model llama-3.1-8b-instant failed, trying mixtral-8x7b-32768...", fallbackError.message || fallbackError);
+      const completion =
+        await groq.chat.completions.create({
+          model: "mixtral-8x7b-32768",
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature
+        });
+
+      const result =
+        completion.choices[0]
+          .message.content || "{}";
+
+      console.log("[LLM Mixtral Fallback]", {
+        promptLength: prompt.length,
+        responseLength: result.length
+      });
+
+      return result;
+    }
+  }
 };
 
 /**
