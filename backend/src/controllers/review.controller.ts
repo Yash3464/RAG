@@ -7,6 +7,8 @@ import {validateFeedback} from "../services/feedback-validation.service";
 import {propagateChanges} from "../services/change-propagation.service";
 import {createDependencyMap} from "../services/dependency-mapper.service";
 import {generateImpactAnalysis} from "../services/impact-analysis.service";
+import { JournalEntryModel } from "../models/JournalEntry";
+import { TaskModel } from "../models/Task";
 
 
 export const getReviewsController = async (req: Request, res: Response) => {
@@ -108,6 +110,64 @@ async (
       return res.status(404).json({
         success: false,
         message: "Review not found"
+      });
+    }
+
+    // Load the linked JournalEntry to verify classification type
+    const journal = await JournalEntryModel.findById(review.journalId);
+    if (!journal) {
+      return res.status(404).json({
+        success: false,
+        message: "Linked requirement draft context not found"
+      });
+    }
+
+    // Summarize the requirement text into a concise backlog card description
+    if (journal.classification === "requirement") {
+      const { generateCompletion } = require("../services/llm.service");
+      const summaryPrompt = `You are a professional Product Manager. Summarize the following software requirement draft specification into a concise, clear description (1-2 sentences) suitable for a backlog item card. Do not add intro/outro, return only the summary.
+      
+DRAFT SPECIFICATION:
+"${journal.content}"
+
+Response:`;
+      try {
+        const summary = await generateCompletion(summaryPrompt, 0.3);
+        if (summary && summary.trim()) {
+          journal.content = summary.trim();
+        }
+      } catch (err) {
+        console.error("Failed to generate summary for finalized backlog item:", err);
+        journal.content = journal.content.split("\n")[0].substring(0, 150) + "...";
+      }
+    }
+
+    journal.status = "approved";
+    await journal.save();
+
+    // If it is a Bug, Issue, or Task, create the single backlog task directly
+    if (journal.classification === "bug" || journal.classification === "issue" || journal.classification === "task") {
+      const taskData = (review.analysis as any).taskData || {};
+      const task = await TaskModel.create({
+        journalId: review.journalId,
+        title: taskData.title || `Refined ${journal.classification.toUpperCase()} Task`,
+        description: `
+${taskData.description || ""}
+
+Acceptance Criteria:
+${(taskData.acceptanceCriteria || []).join("\n")}
+        `,
+        taskType: journal.classification,
+        aiGenerated: true,
+        priority: taskData.priority || "medium",
+        priorityScore: taskData.priorityScore || 0,
+        estimatedHours: taskData.estimatedHours || 0
+      });
+
+      return res.status(200).json({
+        success: true,
+        review,
+        task
       });
     }
 
