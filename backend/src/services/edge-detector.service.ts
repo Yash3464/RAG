@@ -1,5 +1,5 @@
 import {
-  detectRelationship
+  detectRelationshipsBatch
 } from "./ai-relationship-detector.service";
 
 import {
@@ -11,31 +11,24 @@ async (
   sourceNode: any,
   relatedNodes: any[]
 ) => {
+  if (!relatedNodes || relatedNodes.length === 0) return 0;
+
+  const candidates = relatedNodes.map((n: any) => ({
+    nodeId: n.nodeId,
+    title: n.title,
+    content: n.content
+  }));
+
+  const results = await detectRelationshipsBatch(sourceNode.content, candidates);
 
   let edgesCreated = 0;
-
-  for (
-    const targetNode
-    of relatedNodes
-  ) {
-
-    const relationship =
-      await detectRelationship(
-        sourceNode.content,
-        targetNode.content
-      );
-
-    if (
-      relationship.relationship !==
-      "none"
-    ) {
-
+  for (const res of results) {
+    if (res.relationship && res.relationship !== "none") {
       await createKnowledgeEdge(
         sourceNode.nodeId,
-        targetNode.nodeId,
-        relationship.relationship
+        res.nodeId,
+        res.relationship
       );
-
       edgesCreated++;
     }
   }

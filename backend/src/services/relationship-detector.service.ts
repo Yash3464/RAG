@@ -2,8 +2,9 @@ import {RequirementMasterModel} from "../models/RequirementMaster";
 import {generateCompletion} from "./llm.service";
 import {KnowledgeNodeModel} from "../models/KnowledgeNode";
 
-export const findRelatedNodes = async (content: string) => {
-  const nodes = await KnowledgeNodeModel.find({});
+export const findRelatedNodes = async (content: string, excludeNodeId?: string) => {
+  const query = excludeNodeId ? { nodeId: { $ne: excludeNodeId } } : {};
+  const nodes = await KnowledgeNodeModel.find(query);
   
   const stopwords = new Set([
     "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "to", "of", "in", "on", "at", 

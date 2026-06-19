@@ -8,7 +8,8 @@ import {
 
 export const checkDuplicateRequirement =
 async (
-  content: string
+  content: string,
+  excludeJournalId?: string
 ) => {
 
   const candidates =
@@ -19,16 +20,18 @@ async (
   const topMatches =
     candidates.slice(
       0,
-      3
+      1
     );
 
-  for (
-    const candidate
-    of topMatches
-  ) {
+  const checkPromises = topMatches.map(async (candidate) => {
+    const journalId = candidate.document?.documentId?.toString();
+    if (excludeJournalId && journalId === excludeJournalId.toString()) {
+      return null;
+    }
+
     const classification = candidate.document?.metadata?.classification;
     if (!classification) {
-      continue;
+      return null;
     }
 
     const existing =
@@ -81,37 +84,26 @@ Return ONLY JSON.
       analysis.duplicate &&
       analysis.similarity >= 85
     ) {
-
       return {
         duplicate: true,
-
-        similarity:
-          analysis.similarity,
-
-        reason:
-          analysis.reason,
-
+        similarity: analysis.similarity,
+        reason: analysis.reason,
         existing: {
-
-          id:
-            candidate.document
-              ?._id,
-
-          content:
-            existing,
-
-          classification:
-            candidate.document
-              ?.metadata
-              ?.classification,
-
-          priority:
-            candidate.document
-              ?.metadata
-              ?.priority
+          id: candidate.document?._id,
+          content: existing,
+          classification: candidate.document?.metadata?.classification,
+          priority: candidate.document?.metadata?.priority
         }
       };
     }
+
+    return null;
+  });
+
+  const results = await Promise.all(checkPromises);
+  const duplicateMatch = results.find((r) => r !== null && r.duplicate);
+  if (duplicateMatch) {
+    return duplicateMatch;
   }
 
   return {
