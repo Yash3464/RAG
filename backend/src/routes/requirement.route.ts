@@ -3,7 +3,10 @@ import {
   analyzeRequirementController,
   chatRequirementController,
   getRequirementsMasterController,
-  deleteRequirementMasterController
+  deleteRequirementMasterController,
+  listRequirementChatsController,
+  getChatSessionController,
+  updateRequirementDraftController
 } from "../controllers/requirement.controller";
 import { authMiddleware, requireAdmin } from "../middleware/auth.middleware";
 
@@ -19,6 +22,24 @@ router.post(
   "/requirements/chat",
   authMiddleware,
   chatRequirementController
+);
+
+router.get(
+  "/requirements/:id/chats",
+  authMiddleware,
+  listRequirementChatsController
+);
+
+router.get(
+  "/chats/:sessionId",
+  authMiddleware,
+  getChatSessionController
+);
+
+router.patch(
+  "/requirements/:id",
+  authMiddleware,
+  updateRequirementDraftController
 );
 
 router.get(
