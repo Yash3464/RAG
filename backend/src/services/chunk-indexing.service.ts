@@ -8,6 +8,8 @@ async (
   content: string,
   metadata: any = {}
 ) => {
+  // Clear any existing indexed chunks for this journal entry draft
+  await ChunkModel.deleteMany({ documentId: journalId });
 
   const embedding =
     await generateEmbedding(

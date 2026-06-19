@@ -11,31 +11,20 @@ async (
   data: any
 ) => {
 
-  return KnowledgeNodeModel.create({
-    nodeId:
-      data.nodeId,
-
-    nodeType:
-      data.nodeType,
-
-    title:
-      data.title,
-
-    content:
-      data.content,
-
-    priority:
-      data.priority,
-
-    domain:
-      data.domain,
-
-    module:
-      data.module,
-
-    tags:
-      data.tags || []
-  });
+  return KnowledgeNodeModel.findOneAndUpdate(
+    { nodeId: data.nodeId },
+    {
+      nodeId: data.nodeId,
+      nodeType: data.nodeType,
+      title: data.title,
+      content: data.content,
+      priority: data.priority,
+      domain: data.domain,
+      module: data.module,
+      tags: data.tags || []
+    },
+    { upsert: true, new: true }
+  );
 };
 
 export const createKnowledgeEdge =

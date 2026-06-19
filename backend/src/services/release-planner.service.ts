@@ -46,7 +46,7 @@ const enrichJournalEntry = async (item: any) => {
 };
 
 export const planReleases = async () => {
-  const items = await JournalEntryModel.find({ status: { $ne: "completed" } });
+  const items = await JournalEntryModel.find({ status: "approved" });
   const completedDb = await JournalEntryModel.find({ status: "completed" });
 
   const release1: any[] = [];

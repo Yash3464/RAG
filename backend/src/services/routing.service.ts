@@ -33,10 +33,8 @@ async (
       });
 
     case "task":
-      return TaskModel.create({
-        journalId,
-        title: content
-      });
+      // Defer backlog task creation until review is finalized/approved.
+      return null;
 
     case "change_request":
       return ChangeRequestModel.create({
