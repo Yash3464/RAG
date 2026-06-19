@@ -9,6 +9,67 @@ export default function Backlog() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<any>(null);
+  const [detailedReq, setDetailedReq] = useState<any>(null);
+
+  // Knowledge Graph inside Preview Modal
+  const [graphData, setGraphData] = useState<any>(null);
+  const [loadingGraph, setLoadingGraph] = useState(false);
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  // Helper to compute node positions dynamically in radial/star pattern for preview modal
+  const computeNodePositions = (nodes: any[], centralId: string) => {
+    const radius = 220; // Expanded radius to prevent clustering
+    const centerX = 400; // Center X for 800px SVG canvas
+    const centerY = 250; // Center Y for 500px SVG canvas
+    const otherNodes = nodes.filter((n) => n.nodeId !== centralId);
+    
+    return nodes.map((node) => {
+      if (node.nodeId === centralId) {
+        return { ...node, x: centerX, y: centerY, isCentral: true };
+      }
+
+      const angle = (2 * Math.PI * otherNodes.indexOf(node)) / otherNodes.length;
+      return {
+        ...node,
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+        isCentral: false,
+      };
+    });
+  };
+
+  const getNodePos = (node: any, centralId: string) => {
+    if (nodePositions[node.nodeId]) {
+      return nodePositions[node.nodeId];
+    }
+    const computed = computeNodePositions(graphData?.nodes || [], centralId);
+    const matched = computed.find((n) => n.nodeId === node.nodeId);
+    return matched ? { x: matched.x, y: matched.y } : { x: 400, y: 250 };
+  };
+
+  const getNodeColor = (type: string, isCentral: boolean) => {
+    if (isCentral) return "#FF4FA3";
+    switch (type) {
+      case "requirement": return "#7A39D8";
+      case "business_rule": return "#39A6D8";
+      case "task": return "#D8C639";
+      case "change_request": return "#D87A39";
+      case "bug": return "#EF4444";
+      case "issue": return "#F59E0B";
+      default: return "#A1A1AA";
+    }
+  };
+
+  const getEdgeColor = (type: string) => {
+    switch (type) {
+      case "depends_on": return "#D8C639"; // Yellow
+      case "blocks": return "#EF4444"; // Red
+      case "impacts": return "#D87A39"; // Orange
+      case "relates_to": return "#39A6D8"; // Blue
+      default: return "#4B5563"; // Dark grey
+    }
+  };
 
   const userStr = localStorage.getItem("brained_user");
   const user = userStr ? JSON.parse(userStr) : null;
@@ -29,6 +90,31 @@ export default function Backlog() {
     }
   };
 
+  const handleOpenPreview = async (item: any) => {
+    setPreviewItem(item);
+    setGraphData(null);
+    setDetailedReq(null);
+    try {
+      setLoadingGraph(true);
+      const response = await api.get(`/graph/${item._id}`);
+      setGraphData(response.data.graph);
+      if (response.data.detailedRequirement) {
+        setDetailedReq(response.data.detailedRequirement);
+      }
+      if (response.data.graph && response.data.graph.nodes) {
+        const computed = computeNodePositions(response.data.graph.nodes, response.data.graph.centralNode.nodeId);
+        const positions: Record<string, { x: number; y: number }> = {};
+        computed.forEach((node) => {
+          positions[node.nodeId] = { x: node.x, y: node.y };
+        });
+        setNodePositions(positions);
+      }
+    } catch (err) {
+      console.error("Failed to load local knowledge graph:", err);
+    } finally {
+      setLoadingGraph(false);
+    }
+  };
 
   const handleDropdownChange = async (itemId: string, value: string) => {
     if (value === "remove") {
@@ -177,6 +263,12 @@ export default function Backlog() {
           <h3 className={`mt-4 font-semibold text-sm line-clamp-3 ${isCompleted ? "text-white/60 line-through decoration-white/20" : "text-white"}`}>
             {item.content}
           </h3>
+          <button
+            onClick={() => handleOpenPreview(item)}
+            className="mt-3 text-[10px] text-[#FF4FA3] hover:text-[#FF4FA3]/80 font-bold flex items-center gap-1 cursor-pointer transition select-none"
+          >
+            🔍 Preview Details & History
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/5">
@@ -474,6 +566,246 @@ export default function Backlog() {
           </div>
         )}
       </div>
+
+      {/* Detail Preview Modal */}
+      {previewItem && (
+        <div className="fixed inset-0 bg-[#070926]/80 backdrop-blur-xs flex justify-center items-center z-[100] animate-fadeIn p-4">
+          <div className="bg-[#12184A] border border-white/10 rounded-2xl p-6 max-w-7xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative custom-scrollbar text-left">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#7A39D8]/5 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex justify-between items-start border-b border-white/5 pb-4 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>📄</span> Backlog Item Detail
+                </h3>
+                <span className="text-[10px] text-white/40 font-mono uppercase tracking-wider block mt-1">ID: {previewItem._id}</span>
+              </div>
+              <button
+                onClick={() => setPreviewItem(null)}
+                className="text-white/40 hover:text-white transition font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Specifications / Content & Revision History */}
+              <div className="space-y-6 flex flex-col justify-start">
+                {/* Full Text Content */}
+                <div className="space-y-1.5">
+                  <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Full Specification / Content</span>
+                  <div className="bg-[#0D113D] rounded-xl p-4 border border-white/5 max-h-[380px] overflow-y-auto text-xs text-white/90 leading-relaxed whitespace-pre-wrap select-text custom-scrollbar">
+                    {detailedReq ? detailedReq.refinedRequirement : previewItem.content}
+                  </div>
+                </div>
+
+                {detailedReq && detailedReq.assumptions && detailedReq.assumptions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Assumptions</span>
+                    <div className="bg-[#0D113D]/60 rounded-xl p-4 border border-white/5 max-h-[150px] overflow-y-auto text-xs text-white/80 custom-scrollbar">
+                      <ul className="list-disc ml-4 space-y-1">
+                        {detailedReq.assumptions.map((ass: string, idx: number) => (
+                          <li key={idx}>{ass}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {detailedReq && detailedReq.dependencies && detailedReq.dependencies.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Dependencies</span>
+                    <div className="bg-[#0D113D]/60 rounded-xl p-4 border border-white/5 max-h-[150px] overflow-y-auto text-xs text-white/80 custom-scrollbar">
+                      <ul className="list-disc ml-4 space-y-1">
+                        {detailedReq.dependencies.map((dep: string, idx: number) => (
+                          <li key={idx}>{dep}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Version History */}
+                {previewItem.versions && previewItem.versions.length > 0 && (
+                  <div className="space-y-2.5">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Revision History</span>
+                    <div className="space-y-3 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
+                      {previewItem.versions.map((v: any, index: number) => (
+                        <div key={index} className="bg-[#0D113D] p-3 rounded-xl border border-white/5 text-xs flex justify-between items-start gap-4">
+                          <div className="space-y-1 flex-1">
+                            <div className="font-bold text-white">Version {v.versionNumber}: {v.title}</div>
+                            <p className="text-white/60 leading-relaxed text-[11px] max-h-[80px] overflow-y-auto pr-1 custom-scrollbar whitespace-pre-wrap mt-1">{v.content}</p>
+                          </div>
+                          <div className="text-[10px] text-right shrink-0">
+                            <span className="text-pink-400 block font-semibold">{v.modifiedBy}</span>
+                            <span className="text-white/30 block mt-1">{new Date(v.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Metadata, Hours Breakdown, Knowledge Graph */}
+              <div className="space-y-6 flex flex-col justify-start">
+                {/* Effort & Classification grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-[#0D113D] p-3 rounded-xl border border-white/5">
+                    <span className="text-white/40 text-[9px] uppercase font-semibold block">Classification</span>
+                    <span className="font-bold text-xs text-pink-400 capitalize mt-1 block">{previewItem.classification}</span>
+                  </div>
+                  <div className="bg-[#0D113D] p-3 rounded-xl border border-white/5">
+                    <span className="text-white/40 text-[9px] uppercase font-semibold block">Priority (Score)</span>
+                    <span className="font-bold text-xs text-orange-400 capitalize mt-1 block">
+                      {previewItem.priority} ({previewItem.priorityScore})
+                    </span>
+                  </div>
+                  <div className="bg-[#0D113D] p-3 rounded-xl border border-white/5">
+                    <span className="text-white/40 text-[9px] uppercase font-semibold block">Complexity</span>
+                    <span className="font-bold text-xs text-cyan-400 mt-1 block">{previewItem.complexityScore || 3}/5</span>
+                  </div>
+                  <div className="bg-[#0D113D] p-3 rounded-xl border border-white/5">
+                    <span className="text-white/40 text-[9px] uppercase font-semibold block">Total Effort</span>
+                    <span className="font-bold text-xs text-green-400 mt-1 block">
+                      {(previewItem.estimatedDevelopmentHours || 0) + (previewItem.estimatedTestingHours || 0)} hrs
+                    </span>
+                  </div>
+                </div>
+
+                {/* Detailed hours breakdown */}
+                <div className="bg-[#0D113D]/40 p-4 rounded-xl border border-white/5 space-y-3">
+                  <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Estimated Hours Breakdown</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="text-white/50 block text-[10px]">Dev Hours</span>
+                      <span className="text-white font-semibold block mt-1">{previewItem.estimatedDevelopmentHours || 0} hrs</span>
+                    </div>
+                    <div>
+                      <span className="text-white/50 block text-[10px]">Testing Hours</span>
+                      <span className="text-white font-semibold block mt-1">{previewItem.estimatedTestingHours || 0} hrs</span>
+                    </div>
+                    <div>
+                      <span className="text-white/50 block text-[10px]">Review Hours</span>
+                      <span className="text-white font-semibold block mt-1">{previewItem.estimatedReviewHours || 0} hrs</span>
+                    </div>
+                    <div>
+                      <span className="text-white/50 block text-[10px]">Documentation</span>
+                      <span className="text-white font-semibold block mt-1">{previewItem.estimatedDocumentationHours || 0} hrs</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Local Knowledge Graph section */}
+                <div className="bg-[#0D113D]/40 p-4 rounded-xl border border-white/5 space-y-3 flex-grow flex flex-col min-h-[600px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider block">Context Dependency Traceability Map</span>
+                    {loadingGraph && (
+                      <span className="text-[10px] uppercase text-[#FF4FA3] font-bold tracking-wider animate-pulse">Loading Graph...</span>
+                    )}
+                  </div>
+                  <div className="bg-[#0D113D] border border-white/10 rounded-xl overflow-hidden flex-grow select-none relative min-h-[540px]">
+                    {graphData ? (
+                      graphData.nodes?.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-xs text-white/30 italic">No dependencies trace found.</div>
+                      ) : (
+                        <svg width="100%" height="100%" viewBox="0 0 800 500" className="w-full h-full">
+                          <defs>
+                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feGaussianBlur stdDeviation="3" result="blur" />
+                              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                          </defs>
+
+                          {/* Draw relationship edges (lines) */}
+                          {graphData.edges?.map((edge: any, idx: number) => {
+                            const sourceNode = graphData.nodes.find((n: any) => n.nodeId === edge.sourceNodeId);
+                            const targetNode = graphData.nodes.find((n: any) => n.nodeId === edge.targetNodeId);
+                            if (!sourceNode || !targetNode) return null;
+
+                            const sPos = getNodePos(sourceNode, graphData.centralNode.nodeId);
+                            const tPos = getNodePos(targetNode, graphData.centralNode.nodeId);
+
+                            return (
+                              <g key={idx}>
+                                <line
+                                  x1={sPos.x}
+                                  y1={sPos.y}
+                                  x2={tPos.x}
+                                  y2={tPos.y}
+                                  stroke={getEdgeColor(edge.relationshipType)}
+                                  strokeWidth={1.5}
+                                  strokeDasharray={edge.relationshipType === "depends_on" ? "3" : "0"}
+                                  className="opacity-60"
+                                />
+                                <text
+                                  x={(sPos.x + tPos.x) / 2}
+                                  y={(sPos.y + tPos.y) / 2 - 4}
+                                  fill="#9ca3af"
+                                  fontSize="6"
+                                  textAnchor="middle"
+                                  className="font-bold select-none font-mono"
+                                >
+                                  {edge.relationshipType}
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Draw knowledge nodes */}
+                          {graphData.nodes?.map((node: any) => {
+                            const pos = getNodePos(node, graphData.centralNode.nodeId);
+                            const isCentral = node.nodeId === graphData.centralNode.nodeId;
+
+                            return (
+                              <g key={node.nodeId}>
+                                <rect
+                                  x={pos.x - 65}
+                                  y={pos.y - 16}
+                                  width={130}
+                                  height={32}
+                                  rx={8}
+                                  fill={getNodeColor(node.nodeType, isCentral)}
+                                  stroke="rgba(255, 255, 255, 0.15)"
+                                  strokeWidth={1}
+                                  filter={isCentral ? "url(#glow)" : ""}
+                                />
+                                <text
+                                  x={pos.x}
+                                  y={pos.y + 4}
+                                  textAnchor="middle"
+                                  fill="#FFFFFF"
+                                  fontSize="8"
+                                  className="font-bold select-none pointer-events-none tracking-wide"
+                                >
+                                  {node.title && node.title.length > 25 ? `${node.title.substring(0, 22)}...` : node.title}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      )
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-xs text-white/30 italic">
+                        {loadingGraph ? "Generating traceability graph..." : "Traceability graph not loaded."}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 border-t border-white/5 pt-4">
+              <button
+                onClick={() => setPreviewItem(null)}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#7A39D8] to-[#E238A7] hover:opacity-90 text-white font-bold text-xs transition cursor-pointer shadow-lg"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,8 +16,28 @@ export const getNodeGraphController = async (
       });
     }
 
+    let effectiveNodeId = nodeId;
+    let detailedRequirement = null;
+
+    // Try to find if this nodeId is a JournalEntry linked to an approved review
+    const { RequirementReviewModel } = require("../models/RequirementReview");
+    const { RequirementMasterModel } = require("../models/RequirementMaster");
+    const review = await RequirementReviewModel.findOne({ journalId: nodeId });
+    if (review && review.status === "approved") {
+      const requirementCode = `REQ-${review._id}`;
+      const masterRecord = await RequirementMasterModel.findOne({ requirementCode });
+      if (masterRecord) {
+        effectiveNodeId = requirementCode;
+        detailedRequirement = masterRecord;
+      }
+    }
+
     // 1. Fetch central node
-    const centralNode = await KnowledgeNodeModel.findOne({ nodeId });
+    let centralNode = await KnowledgeNodeModel.findOne({ nodeId: effectiveNodeId });
+    if (!centralNode && effectiveNodeId !== nodeId) {
+      centralNode = await KnowledgeNodeModel.findOne({ nodeId });
+      effectiveNodeId = nodeId;
+    }
 
     if (!centralNode) {
       return res.status(404).json({
@@ -29,14 +49,14 @@ export const getNodeGraphController = async (
     // 2. Fetch direct connections (edges)
     const edges = await KnowledgeEdgeModel.find({
       $or: [
-        { sourceNodeId: nodeId },
-        { targetNodeId: nodeId }
+        { sourceNodeId: effectiveNodeId },
+        { targetNodeId: effectiveNodeId }
       ]
     }).lean();
 
     // 3. Find unique connected node IDs
     const connectedNodeIds = new Set<string>();
-    connectedNodeIds.add(nodeId as string);
+    connectedNodeIds.add(effectiveNodeId as string);
     
     for (const edge of edges as any[]) {
       connectedNodeIds.add(edge.sourceNodeId as string);
@@ -54,7 +74,8 @@ export const getNodeGraphController = async (
         centralNode,
         nodes,
         edges
-      }
+      },
+      detailedRequirement
     });
 
   } catch (error) {
